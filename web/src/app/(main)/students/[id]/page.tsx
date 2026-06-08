@@ -9,6 +9,7 @@ import { MasteryRing } from "@/components/students/MasteryRing";
 import { ReviewRecommendationsInline } from "@/components/students/ReviewRecommendations";
 import { ResumeSessionBanner } from "@/components/students/ResumeSessionBanner";
 import { SessionHistoryList } from "@/components/students/SessionHistoryList";
+import { InsightsHub } from "@/components/insights/InsightsHub";
 import { StudentNotes } from "@/components/students/StudentNotes";
 import { getActiveConfig } from "@/lib/config/service";
 import { getStudentMasteryMap } from "@/lib/queries/mastery-map";
@@ -50,6 +51,12 @@ export default async function StudentProfilePage({
   const masteryMapEnabled =
     activeConfig.config.features.mastery_map !== false;
   const reviewAutoEnabled = activeConfig.config.features.review_auto !== false;
+  const weakAyatEnabled =
+    activeConfig.config.features.weak_ayat_engine !== false;
+  const reviewPlannerEnabled =
+    activeConfig.config.features.review_planner !== false;
+  const parentReportsEnabled =
+    activeConfig.config.features.parent_reports !== false;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
@@ -204,6 +211,17 @@ export default async function StudentProfilePage({
           <p className="text-xs text-muted">Common mistake</p>
         </Card>
       </div>
+
+      {(weakAyatEnabled || reviewPlannerEnabled || parentReportsEnabled) && (
+        <InsightsHub
+          studentId={id}
+          flags={{
+            weakAyat: weakAyatEnabled,
+            reviewPlanner: reviewPlannerEnabled,
+            parentReports: parentReportsEnabled,
+          }}
+        />
+      )}
 
       {reviewAutoEnabled && (
         <Card className="mt-4">

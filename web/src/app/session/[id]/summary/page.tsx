@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { SessionMasteryChart } from "@/components/session/SessionMasteryChart";
+import { AiSummaryCard } from "@/components/insights/AiSummaryCard";
+import { SessionTypeBadge } from "@/components/insights/SessionTypeBadge";
 import { SessionNoteSection } from "@/components/session/SessionNoteSection";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -69,7 +71,10 @@ function SummaryContent() {
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700">
           ✓
         </div>
-        <h1 className="mt-4 text-2xl font-semibold">Session complete</h1>
+        <h1 className="mt-4 text-2xl font-semibold">
+          Session complete
+          <SessionTypeBadge sessionType={session.sessionType} />
+        </h1>
         <p className="mt-1 text-sm text-muted">
           {formatDuration(session.durationSeconds)} · {rangeLabel}
         </p>
@@ -161,6 +166,7 @@ function SummaryContent() {
       </Card>
 
       <SessionNoteSection sessionId={sessionId} />
+      <AiSummaryCard sessionId={sessionId} />
 
       <div className="mt-6 space-y-3">
         <Button className="w-full" size="lg" href={`/students/${studentId}`}>

@@ -28,6 +28,7 @@ export type SessionPassageDto = {
 export type SessionListItemDto = {
   id: string;
   studentId: string;
+  sessionType: "regular" | "review";
   startedAt: string;
   endedAt: string | null;
   durationSeconds: number | null;
@@ -40,6 +41,7 @@ export type SessionDetailDto = {
   id: string;
   studentId: string;
   circleId: string;
+  sessionType: "regular" | "review";
   startedAt: string;
   endedAt: string | null;
   durationSeconds: number | null;
@@ -73,6 +75,7 @@ export async function createSession(
   studentId: string,
   teacherId: string,
   passages: { surah: number; startAyah: number; endAyah: number }[],
+  sessionType: "regular" | "review" = "regular",
 ) {
   const student = await getStudentForTeacher(studentId, teacherId);
   if (!student) return null;
@@ -84,6 +87,7 @@ export async function createSession(
       studentId,
       circleId: student.circleId,
       teacherId,
+      sessionType,
     })
     .returning();
 
@@ -185,6 +189,7 @@ export async function getSessionDetail(
     id: owned.session.id,
     studentId: owned.session.studentId,
     circleId: owned.session.circleId,
+    sessionType: owned.session.sessionType,
     startedAt: owned.session.startedAt.toISOString(),
     endedAt: owned.session.endedAt?.toISOString() ?? null,
     durationSeconds: owned.session.durationSeconds,
@@ -393,6 +398,7 @@ export async function listStudentSessions(
     result.push({
       id: session.id,
       studentId: session.studentId,
+      sessionType: session.sessionType,
       startedAt: session.startedAt.toISOString(),
       endedAt: session.endedAt?.toISOString() ?? null,
       durationSeconds: session.durationSeconds,
@@ -431,6 +437,7 @@ export async function getDraftSessionForStudent(
   return {
     id: session.id,
     studentId: session.studentId,
+    sessionType: session.sessionType,
     startedAt: session.startedAt.toISOString(),
     endedAt: null,
     durationSeconds: session.durationSeconds,

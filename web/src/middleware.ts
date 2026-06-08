@@ -6,6 +6,8 @@ const PUBLIC_PREFIXES = [
   "/api/auth",
   "/api/quran",
   "/api/config/active",
+  "/reports/share",
+  "/api/reports/share",
 ];
 
 function isPublicPath(pathname: string) {

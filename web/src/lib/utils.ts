@@ -21,6 +21,24 @@ export function getStatusBorderColor(status: VerseStatusSlug): string {
   }
 }
 
+/** Mushaf mode — highlight without borders */
+export function getStatusHighlightColor(status: VerseStatusSlug): string {
+  switch (status) {
+    case "reminder_required":
+      return "bg-amber-100/80";
+    case "second_attempt":
+      return "bg-orange-100/85";
+    case "third_attempt":
+      return "bg-red-100/75";
+    case "prompting_required":
+      return "bg-red-100/85";
+    case "incomplete":
+      return "bg-rose-200/70";
+    default:
+      return "";
+  }
+}
+
 export function getMapStateColor(state: MasteryMapState): string {
   switch (state) {
     case "memorized":

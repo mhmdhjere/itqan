@@ -34,3 +34,8 @@ body {
   font-family: var(--font-amiri), "Traditional Arabic", serif;
   line-height: 2.2;
 }
+
+.font-mushaf {
+  font-family: "quran-font_react-quran", var(--font-amiri), "Traditional Arabic",
+    serif;
+}

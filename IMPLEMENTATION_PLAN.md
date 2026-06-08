@@ -560,16 +560,266 @@ sequenceDiagram
 
 ### Phase 6+ — Roadmap (post-MVP, per design doc)
 
-Deferred until MVP validated: attendance, parent portal, supervisor dashboard, PDF reports, badges, audio, AI analysis, mobile apps, multi-teacher.
+Deferred until MVP validated: attendance, parent portal, supervisor dashboard, badges, audio, mobile apps, multi-teacher.
+
+---
+
+### Phase 7 — Intelligence & Insights (post-M5)
+
+**Goal:** Turn historical data into teaching intelligence — weak ayat, automated review, patterns, reports, timeline, and (future) AI summaries.  
+**Exit:** Teacher can identify persistent weaknesses, generate review sessions, share parent reports, and view progress timeline.
+
+#### 7.1 Repeated Weak Ayat Engine
+
+| Item | Specification |
+|------|---------------|
+| **Purpose** | Rank ayat by recurring mistakes across all sessions |
+| **Data** | Aggregate `VerseRecord` + `Mistake` by `(student_id, surah, ayah)` |
+| **Algorithm** | `mistake_count`, `session_count_with_mistakes`, `last_mistake_at`, `persistent = sessions ≥ 2` |
+| **API** | `GET /api/students/:id/weak-ayat?limit=&minSessions=` |
+| **UI** | `/students/[id]/weak-ayat` + profile widget |
+| **Config** | `insights.weak_ayat.min_mistakes`, `insights.weak_ayat.default_limit` |
+
+#### 7.2 Weak Ayah Review Session Generator
+
+| Item | Specification |
+|------|---------------|
+| **Purpose** | Cluster weak ayahs into review passages |
+| **Algorithm** | Cluster by surah; merge if gap ≤ `review.cluster_gap`; pad ± `review.range_padding` |
+| **Schema** | Add `RecitationSession.session_type: regular \| review` |
+| **API** | `POST /api/students/:id/review-sessions/generate` |
+| **UI** | Preview screen → reuse session setup editor → `POST /api/sessions` with `type: review` |
+
+#### 7.3 Smart Review Planner
+
+| Item | Specification |
+|------|---------------|
+| **Purpose** | Daily/weekly prioritized review plans with duration estimates |
+| **Algorithm** | Extends §12 urgency + weak_ayat_rank + trend_bonus; `estimated_minutes = verses × avg_pace` |
+| **API** | `GET /api/students/:id/review-plan?horizon=today\|week` |
+| **Job** | Nightly refresh + on session end |
+| **Config** | `review.planner.*` weights, `review.planner.daily_limit` |
+
+#### 7.4 Weakness Pattern Analytics
+
+| Item | Specification |
+|------|---------------|
+| **Purpose** | Category/subcategory mistake patterns with trends |
+| **API** | `GET /api/students/:id/weakness-patterns?days=90` |
+| **Output** | `{ categories: [{slug, pct, topSubcategory, trend}], ... }` |
+| **UI** | `/students/[id]/insights` — charts + drill-down |
+
+#### 7.5 Parent Report Generator
+
+| Item | Specification |
+|------|---------------|
+| **Purpose** | PDF / print / shareable parent reports |
+| **API** | `GET .../reports/preview`, `POST .../reports/export`, `POST .../reports/share` |
+| **Schema** | `ParentReportShare { token, student_id, expires_at, payload_json }` |
+| **Stack** | `@react-pdf/renderer` or server-side PDF (Puppeteer); print CSS fallback |
+| **UI** | `/students/[id]/reports` — period picker, preview, export |
+
+#### 7.6 Progress Timeline
+
+| Item | Specification |
+|------|---------------|
+| **Purpose** | Milestone timeline + optional activity heatmap |
+| **Events** | session_complete, surah_started, surah_completed, juz_completed, mastery_gain, review_milestone |
+| **API** | `GET /api/students/:id/timeline?include=heatmap` |
+| **UI** | `/students/[id]/timeline` — vertical feed + 12-month heatmap |
+
+#### 7.7 AI Session Summary (Future)
+
+| Item | Specification |
+|------|---------------|
+| **Purpose** | LLM-generated session insights for teacher and parent |
+| **API** | `POST /api/sessions/:id/ai-summary`, `GET ...` (async poll) |
+| **Feature flag** | `features.ai_session_summary` (default off) |
+| **Guardrails** | Structured prompt with session JSON only; no hallucinated ayahs; teacher edit required |
+
+#### Phase 7 API additions (summary)
+
+| Area | Endpoints |
+|------|-----------|
+| Weak ayat | `GET /students/:id/weak-ayat` |
+| Review generator | `POST /students/:id/review-sessions/generate` |
+| Review planner | `GET /students/:id/review-plan` |
+| Patterns | `GET /students/:id/weakness-patterns` |
+| Reports | `GET/POST /students/:id/reports/*` |
+| Timeline | `GET /students/:id/timeline` |
+| AI (future) | `POST/GET /sessions/:id/ai-summary` |
+
+#### Phase 7 data model additions
+
+```
+RecitationSession.session_type  — regular | review (default regular)
+
+AyahMistakeAggregate (materialized or query view)
+  - student_id, surah, ayah
+  - mistake_count, affected_session_count
+  - last_mistake_at, top_subcategory_slugs[]
+
+ParentReportShare
+  - id, student_id, teacher_id, token, expires_at
+  - period_start, period_end, created_at
+
+TimelineEvent (computed or stored)
+  - student_id, event_type, occurred_at, metadata_json
+```
+
+#### Phase 7 teacher routes
+
+```
+/students/[id]/weak-ayat
+/students/[id]/insights
+/students/[id]/review-plan
+/students/[id]/timeline
+/students/[id]/reports
+```
+
+**Estimated duration:** ~3–4 weeks solo dev after M5.
+
+---
+
+### Phase 8 — Mushaf Display Mode (post-M7)
+
+**Goal:** Add an authentic Madinah Mushaf page view alongside the existing structured verse list, without changing the live session interaction model.  
+**Exit:** Teacher can toggle modes mid-session; ayah taps work in Mushaf layout; preference persists.
+
+#### 8.0 Open-source research summary
+
+| Project | License | Size | Page-based | Ayah clicks | Verdict |
+|---------|---------|------|------------|-------------|---------|
+| [mushaf-layout](https://github.com/zonetecde/mushaf-layout) | Data OSS | ~604 JSON | Yes | Per-word `location: "s:a:w"` | **Primary layout data** |
+| [react-quran](https://github.com/6km/react-quran) | MIT | ~7MB | Yes (`ReadingView`) | Not exposed | **Font + visual reference** |
+| [open-quran-view](https://github.com/adelpro/open-quran-view) | MIT | ~211MB | Yes | `onWordClick` | Reject — bundle + API dep |
+| [quran-madina-html](https://github.com/tarekeldeeb/quran-madina-html) | OSS | npm pkg | Yes | Unclear | Fallback only |
+
+**Decision:** Use **mushaf-layout** JSON as the page renderer data source. Import **KFGQPC Hafs** font from `react-quran` npm package. Build a custom `MushafCanvas` React component — not a custom text-flow engine; iterate precomputed lines/words from JSON.
+
+#### 8.0.1 Resolved implementation decisions
+
+| # | Decision | Choice |
+|---|----------|--------|
+| 1 | Out-of-range ayat on shared Mushaf pages | **Dim (40% opacity) + disable clicks** — page layout stays intact |
+| 2 | Mushaf typography | **KFGQPC Uthmanic Hafs via `react-quran` npm** (`react-quran/fonts/index.css`) |
+| 3 | Page JSON hosting | **Bundled in repo** at `web/public/mushaf/page-NNN.json` (604 files from mushaf-layout) |
+
+#### 8.1 Architecture
+
+```mermaid
+flowchart TB
+    LiveSession[LiveSession]
+    QuranDisplay[QuranDisplay router]
+    Structured[StructuredCanvas - existing QuranCanvas]
+    Mushaf[MushafCanvas - new]
+    Store[live-session-store marks unchanged]
+    Prefs[user_preferences.quran_display_mode]
+
+    LiveSession --> QuranDisplay
+    LiveSession --> Store
+    QuranDisplay -->|mode=structured| Structured
+    QuranDisplay -->|mode=mushaf| Mushaf
+    Prefs --> QuranDisplay
+    Mushaf --> PageJSON[mushaf/page-NNN.json]
+    Mushaf --> AyahIndex[ayah-to-page.json]
+```
+
+**Shared interface:**
+
+```typescript
+type QuranCanvasProps = {
+  ranges: SurahRange[];
+  marks: Record<string, VerseMark>;
+  activeConfig: ActiveConfig | null;
+  onAyahClick: (surah: number, ayah: number) => void;
+};
+```
+
+`QuranDisplay` holds `displayMode` state (initialized from teacher preference), renders toggle, passes identical props to either canvas.
+
+#### 8.2 MushafCanvas rendering
+
+1. **Page resolution:** From `ranges`, compute `pageMin..pageMax` via ayah→page index.
+2. **Load page:** `fetch(/mushaf/page-${n}.json)` with in-memory LRU cache (keep ±2 pages).
+3. **Line render:** Branch on `line.type`:
+   - `surah-header` → decorative header (existing Mushaf CSS)
+   - `basmala` → centered basmala glyph line
+   - `text` → RTL flex line; map `words[]` into clickable `<span>` elements grouped by ayah
+4. **Ayah grouping:** Parse `word.location` (`78:1:2` → surah 78, ayah 1). Consecutive words same ayah → single `<button>` wrapper.
+5. **Session filter:** `isInRange(surah, ayah, ranges)` → if false: `opacity-40 pointer-events-none`.
+6. **Marks:** Apply `getStatusBorderColor` equivalent as `background-color` / `box-decoration-break` highlight on ayah span.
+7. **Navigation:** `currentPage` state; prev/next clamped to `[pageMin, pageMax]`; show Arabic page number.
+
+#### 8.3 Build-time assets
+
+| Asset | Source | Output |
+|-------|--------|--------|
+| Page JSON (604 files) | mushaf-layout repo | `web/public/mushaf/page-NNN.json` |
+| Ayah→page index | Script scans all pages | `web/src/data/ayah-to-page.json` |
+| QPC Hafs font | react-quran or KFGQPC | `web/public/fonts/` or npm import |
+
+Script: `npm run mushaf:build-index` (one-time + CI check).
+
+#### 8.4 Teacher preferences
+
+**Schema addition:**
+
+```
+users.preferences_json  — nullable JSONB
+  { "quran_display_mode": "structured" | "mushaf" }
+```
+
+**API:**
+
+- `GET /api/users/me/preferences`
+- `PATCH /api/users/me/preferences` — `{ quran_display_mode }`
+
+**Client:** `useTeacherPreferences()` hook; localStorage mirror `qt:display_mode` for instant hydration before fetch resolves.
+
+#### 8.5 Feature flag & config
+
+| Key | Default | Effect |
+|-----|---------|--------|
+| `features.mushaf_display` | true | Hide Mushaf toggle when false |
+| `display.quran_mode` | structured | Platform default for new teachers |
+
+#### 8.6 Files to create/modify
+
+| File | Action |
+|------|--------|
+| `web/src/components/session/QuranDisplay.tsx` | New — mode router + toggle |
+| `web/src/components/session/MushafCanvas.tsx` | New — page renderer |
+| `web/src/components/session/MushafPage.tsx` | New — single page lines |
+| `web/src/components/session/QuranCanvas.tsx` | Rename export alias `StructuredCanvas` (optional) |
+| `web/src/lib/mushaf/ayah-page-index.ts` | New — lookup helpers |
+| `web/src/lib/mushaf/page-cache.ts` | New — LRU fetch cache |
+| `web/scripts/build-mushaf-index.ts` | New — index generator |
+| `web/src/components/session/LiveSession.tsx` | Wire `QuranDisplay` |
+| `web/src/app/(main)/settings/page.tsx` | Default mode picker |
+| `web/src/db/schema.ts` | `preferences_json` on users |
+
+#### 8.7 Testing
+
+| Test | Type |
+|------|------|
+| `ayah-page-index` maps Taha 57 → correct page | Unit |
+| `groupWordsByAyah` clusters words correctly | Unit |
+| `pagesForRanges` returns contiguous page list | Unit |
+| Live E2E: switch mode mid-session, mark ayah in Mushaf | E2E |
+| Out-of-range ayah not clickable | Unit/DOM |
+
+**Estimated duration:** ~1.5–2 weeks solo dev after M7.
 
 ---
 
 ## 11. Quran Content Strategy
 
-1. **Source:** Tanzil.net or equivalent Uthmani text (verify license).
-2. **Storage:** Static JSON in repo or R2/CDN; API serves by surah.
-3. **Metadata:** surah number, name (EN/AR), ayah count, juz mapping.
-4. **Display:** Store `surah` + `ayah` as integers everywhere; no string parsing.
+1. **Source (Structured mode):** Tanzil.net or equivalent Uthmani text (verify license).
+2. **Source (Mushaf mode):** [mushaf-layout](https://github.com/zonetecde/mushaf-layout) page JSON (Hafs ʿan ʿĀṣim, 604 pages) + KFGQPC Uthmanic Hafs font.
+3. **Storage:** Structured text via `/api/quran/[surah]`; Mushaf pages as static JSON in `public/mushaf/`.
+4. **Metadata:** surah number, name (EN/AR), ayah count, juz mapping, ayah→page index.
+5. **Display:** Store `surah` + `ayah` as integers everywhere; Mushaf renderer maps words via `location` field.
 5. **Range validation:** Session setup clamps to valid ayah bounds.
 
 ---
@@ -657,8 +907,10 @@ No live recitation until Sprint 2–3, but config-driven architecture is locked 
 | 3 | Mastery & analytics | 1 week |
 | 4 | Mastery map & review | 1 week |
 | 5 | Polish & deploy | 1 week |
+| 7 | Intelligence & Insights | 3–4 weeks |
 
-**Total MVP:** ~7 weeks (solo dev pace; adjustable).
+**Total MVP:** ~7 weeks (solo dev pace; adjustable).  
+**With Phase 7:** ~10–11 weeks. **With Phase 8 (Mushaf mode):** ~11–12 weeks.
 
 **Admin panel** ships in Phase 0–1 (foundation + config/taxonomy editors), not post-MVP.
 

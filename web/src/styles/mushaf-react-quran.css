@@ -1,0 +1,67 @@
+/* react-quran ReadingView — Medina Mushaf presentation layer */
+
+.qt-mushaf-react-quran {
+  direction: rtl;
+  padding: 8px;
+  background: linear-gradient(
+    180deg,
+    #f3e8ea 0%,
+    #fffef8 6%,
+    #fffef8 94%,
+    #f3e8ea 100%
+  );
+  border: 2px solid #c4b5a0;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-word {
+  transition: background-color 0.12s ease;
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-word.qt-mushaf-in-range {
+  cursor: pointer;
+}
+
+/* Whole-ayah hover — all words + end marker in the verse */
+.qt-mushaf-react-quran .react-quran_ayah-word.qt-mushaf-in-range.qt-mushaf-ayah-hover,
+.qt-mushaf-react-quran .react-quran_ayah-marker.qt-mushaf-in-range.qt-mushaf-ayah-hover {
+  background-color: rgba(251, 191, 36, 0.22);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-word.qt-mushaf-out-range,
+.qt-mushaf-react-quran .react-quran_ayah-marker.qt-mushaf-out-range {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-word.qt-mushaf-status-reminder_required {
+  background-color: rgba(251, 191, 36, 0.35);
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-word.qt-mushaf-status-second_attempt {
+  background-color: rgba(254, 215, 170, 0.75);
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-word.qt-mushaf-status-third_attempt {
+  background-color: rgba(254, 202, 202, 0.7);
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-word.qt-mushaf-status-prompting_required {
+  background-color: rgba(254, 202, 202, 0.8);
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-word.qt-mushaf-status-incomplete {
+  background-color: rgba(251, 207, 232, 0.75);
+}
+
+/* Highlight ayah end markers when verse is in session range */
+.qt-mushaf-react-quran .react-quran_ayah-marker.qt-mushaf-in-range {
+  cursor: pointer;
+}
+
+.qt-mushaf-react-quran .react-quran_ayah-marker.qt-mushaf-marker-marked {
+  filter: drop-shadow(0 0 2px rgba(234, 88, 12, 0.45));
+}

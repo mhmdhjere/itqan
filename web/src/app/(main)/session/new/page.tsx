@@ -59,6 +59,8 @@ function SessionSetupContent() {
   const [hasPlan, setHasPlan] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const sessionType =
+    searchParams.get("type") === "review" ? "review" : "regular";
 
   useEffect(() => {
     if (!studentId) return;
@@ -125,6 +127,7 @@ function SessionSetupContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentId,
+          sessionType,
           passages: ranges.map((r) => ({
             surah: r.surah,
             startAyah: r.startAyah,
@@ -173,8 +176,15 @@ function SessionSetupContent() {
       </Link>
       <h1 className="mt-2 text-xl font-semibold">Session Setup</h1>
       <p className="mt-1 text-sm text-muted">
-        Add one or more surahs, each with its own ayah range.
+        {sessionType === "review"
+          ? "Review session — weak ayat passages pre-filled."
+          : "Add one or more surahs, each with its own ayah range."}
       </p>
+      {sessionType === "review" && (
+        <span className="mt-2 inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900">
+          Review session
+        </span>
+      )}
 
       <Card className="mt-4 space-y-4">
         <div>

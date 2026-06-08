@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     parsed.data.studentId,
     authResult.teacherId,
     parsed.data.passages,
+    parsed.data.sessionType,
   );
 
   if (!session) return notFound();

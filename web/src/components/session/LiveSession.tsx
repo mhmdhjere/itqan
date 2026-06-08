@@ -19,7 +19,7 @@ import { useLiveSessionStore } from "@/lib/stores/live-session-store";
 import { formatTimer } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { DetailPanel } from "./DetailPanel";
-import { QuranCanvas } from "./QuranCanvas";
+import { QuranDisplay } from "./QuranDisplay";
 
 export function LiveSession({
   sessionId,
@@ -56,7 +56,6 @@ export function LiveSession({
 
   const undoDepth =
     (activeConfig?.config.live.undo_depth as number | undefined) ?? 20;
-  const scrollRef = useRef<HTMLDivElement>(null);
   const endDialogRef = useFocusTrap(showEndConfirm);
   const seconds = useSessionTimer(true);
   const { flush, online } = useSessionAutosave(sessionId, marks);
@@ -219,16 +218,12 @@ export function LiveSession({
         Tap ayah: 2nd attempt → 3rd attempt → mistakes
       </p>
 
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8"
-      >
-        <QuranCanvas
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6">
+        <QuranDisplay
           ranges={ranges}
           marks={marks}
           activeConfig={activeConfig}
           onAyahClick={handleAyahClick}
-          scrollContainerRef={scrollRef}
         />
       </div>
 

@@ -21,6 +21,7 @@
 10. [Accessibility & Responsive Strategy](#10-accessibility--responsive-strategy)
 11. [Config-Driven UX Behaviors](#11-config-driven-ux-behaviors)
 12. [Open UX Decisions](#12-open-ux-decisions)
+13. [Intelligence & Insights](#13-intelligence--insights)
 
 ---
 
@@ -77,6 +78,11 @@ Every screen, component, and interaction is judged against this sentence. If a f
 /students/[id]/plan               → Memorization plan
 /students/[id]/history            → Session history
 /students/[id]/mastery-map        → Quran mastery map
+/students/[id]/weak-ayat          → Repeated weak ayat (Phase 7)
+/students/[id]/insights           → Weakness pattern analytics (Phase 7)
+/students/[id]/review-plan        → Smart review planner (Phase 7)
+/students/[id]/timeline           → Progress timeline (Phase 7)
+/students/[id]/reports            → Parent report generator (Phase 7)
 /session/new                      → Session setup
 /session/[id]/live                → Live recitation mode ★
 /session/[id]/summary             → Post-session summary
@@ -131,8 +137,11 @@ Live Recitation Mode is not a "feature screen" — it is **the product**. All ot
 │   Student · Surah · Ayah range · Timer · Exception count      │
 ├──────────────────────────────────────────────────────────────┤
 │ REGION B: Quran Canvas (flex-grow, scrollable)                │
+│   Display mode: Structured (rows) OR Mushaf (pages)           │
 │   RTL Arabic · ayah markers · verse hit-targets               │
 │   Only marked verses show status tint                         │
+│ REGION B′: Display mode toggle (in chrome or above canvas)    │
+│   [ Structured | Mushaf ] — instant switch, no state loss     │
 ├──────────────────────────────────────────────────────────────┤
 │ REGION C: Tap hint strip (one line)                           │
 │   "Tap: 2nd attempt → 3rd attempt → mistakes"               │
@@ -661,7 +670,8 @@ Centered card (max 520px) — stacked passage cards, same fields.
 
 - **Session chrome (A):** Student name, passage summary (N passages · M verses), timer, exception count
 - **Tap hint strip (C):** One-line reminder of 3-tap cycle
-- **Quran canvas (B):** RTL flow, ayah markers, hit-targets, status tints + attempt labels
+- **Display mode toggle:** Segmented `Structured | Mushaf` in session chrome
+- **Quran canvas (B):** `QuranDisplay` — Structured rows OR Mushaf page; RTL; ayah hit-targets; status tints
 - **Footer (D):** Undo (disabled when stack empty), End Session (destructive outline)
 - **Mistakes panel (E):** Opens on 3rd tap; bottom sheet (mobile) / side panel (desktop)
 
@@ -1033,9 +1043,11 @@ These admin-controlled keys directly affect teacher UI (see `IMPLEMENTATION_PLAN
 | `live.tap_mode` | attempt_cycle | 1st tap = 2nd attempt; 2nd = 3rd; 3rd = mistakes panel |
 | `live.undo_depth` | 10 | Undo stack size |
 | `live.auto_start_timer` | true | Timer on live enter |
-| `display.quran_font` | Uthmani | Canvas typography |
-| `display.quran_font_size` | 22 | Canvas font size |
+| `display.quran_font` | Uthmani | Structured mode typography |
+| `display.quran_font_size` | 22 | Structured mode font size |
 | `display.theme_live` | light | Live mode color scheme |
+| `display.quran_mode` | structured | Teacher default: `structured` \| `mushaf` |
+| `features.mushaf_display` | true | Hide Mushaf toggle when off |
 | VerseStatusDefinition.* | seeded | Picker labels, colors, order |
 | MistakeSubcategory.* | seeded | Detail panel chips |
 
@@ -1070,6 +1082,371 @@ This document defines the UI/UX contract for the teacher-facing MVP. On approval
 3. Phase 2 (Live Recitation) implementation begins against §8.4 and §8.5.
 
 **Please review and approve, or note requested changes.**
+
+---
+
+## 13. Quran Display Modes (M8)
+
+Teachers toggle between **Structured** (tracking-optimized) and **Mushaf** (page-authentic) layouts in live recitation. The 3-tap interaction model, mistakes panel, and undo stack are identical in both modes.
+
+### 13.1 Mode comparison
+
+| Aspect | Structured Mode | Mushaf Mode |
+|--------|-----------------|-------------|
+| Layout | One ayah per row | Madinah page (15 lines typical) |
+| Navigation | Vertical scroll | Page prev/next within session range |
+| Ayah markers | LTR number in margin | Inline Arabic end markers in text |
+| Status highlight | Left border + label chip | Soft background tint on ayah span |
+| Typography | Admin `display.quran_font` | KFGQPC Uthmanic Hafs (fixed) |
+| Best for | Fast exception marking | Natural read-along with student |
+
+### 13.2 Live chrome additions (Mushaf active)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Yusuf · Taha 57–80        ⏱ 4:02   ⨯3   [Structured|Mushaf]│
+├──────────────────────────────────────────────────────────────┤
+│                    ┌─────────────────────┐                   │
+│                    │  سُورَةُ طه          │  ← surah header   │
+│                    │  بِسْمِ اللَّهِ ...    │                   │
+│                    │  ... continuous ...   │  ← Mushaf page    │
+│                    │  inline ۝ markers     │                   │
+│                    └─────────────────────┘                   │
+│              ←  صفحة ٣١٢  →    (page nav, session bounds)    │
+├──────────────────────────────────────────────────────────────┤
+│ Tap ayah: 2nd attempt → 3rd attempt → mistakes               │
+├──────────────────────────────────────────────────────────────┤
+│ [Undo]                                    [End Session]      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 13.3 Mushaf interaction rules
+
+| Rule | Behavior |
+|------|----------|
+| Tap target | Entire ayah span (all words sharing `surah:ayah`) is one hit target |
+| Out-of-range ayat | **Dimmed (40% opacity) + disabled** — not hidden; page layout preserved |
+| Marked ayah | Translucent amber (2nd) / rose (3rd) background — no box borders |
+| Page bounds | Nav clamped to pages intersecting session `ranges` |
+| Mode switch | Preserves `marks`, `undo` stack, timer; restores last page/scroll per mode |
+| Pinch-zoom | Supported mobile-only (existing §12 decision #9) |
+
+### 13.4 Settings
+
+**Route:** `/settings` → **Quran display** card
+
+- Default mode: Structured / Mushaf (radio)
+- Persists to `user_preferences.quran_display_mode` (server) + localStorage cache for instant live load
+
+### 13.5 Accessibility
+
+- Each ayah span: `aria-label="{surah} ayah {n}, {status}"`
+- Page nav buttons: `aria-label="Previous Mushaf page"` / `Next`
+- Mode toggle: `role="tablist"` with `aria-selected`
+
+### 13.6 Technical renderer (implementation contract)
+
+- **Data:** `mushaf-layout` JSON (604 pages) bundled under `web/public/mushaf/`
+- **Index:** Build-time `ayah-to-page.json` mapping `(surah, ayah) → page number`
+- **Component tree:** `LiveSession` → `QuranDisplay` → `StructuredCanvas` \| `MushafCanvas`
+- **Font:** `react-quran/fonts/index.css` (KFGQPC Hafs) or equivalent KFGQPC bundle
+- **Not in scope:** Word-by-word tafseer, translation overlay, multiple riwayat
+
+---
+
+## 14. Intelligence & Insights
+
+Post-MVP feature set (Phase 7). Extends student profile, session setup, and summary with analytics-first surfaces. Live Recitation Mode interaction model is unchanged.
+
+---
+
+### 13.1 Repeated Weak Ayat Engine
+
+#### Purpose
+
+Show teachers which ayat recur as problem areas across all sessions, ranked and drillable.
+
+#### Problem it solves
+
+Session history and mastery map do not answer *"which ayat fail most often over time?"* in one glance.
+
+#### Detailed feature description
+
+Ranked list per student: surah, ayah, total mistakes, last occurrence, persistence flag. Drill-down reveals chronological recitation events (session link, status, mistake chips).
+
+#### User workflow
+
+Profile → **Weak ayat** → scan ranked list → tap ayah → event timeline → *Start review here* or open source session.
+
+#### UI/UX requirements
+
+- Route: `/students/[id]/weak-ayat`
+- Profile widget: top 3 weak ayat + "View all"
+- Row: surah EN name, ayah #, mistake badge, relative date
+- Persistent weak ayahs: warning accent (border or icon)
+- Drill-down: bottom sheet / 360px side panel with scrollable events
+- Empty state + loading skeleton
+- Feature flag: `features.weak_ayat_engine`
+
+#### Expected outputs
+
+```
+Most Problematic Ayat:
+- Taha 64 (8 mistakes)
+- Taha 109 (6 mistakes)
+- Al-Baqarah 255 (5 mistakes)
+```
+
+#### Benefits
+
+Targets review on proven weak spots; links map colors to evidence.
+
+---
+
+### 13.2 Weak Ayah Review Session Generator
+
+#### Purpose
+
+Convert weak ayat into editable review session ranges automatically.
+
+#### Problem it solves
+
+Teachers manually build ranges from scattered weak ayah numbers.
+
+#### Detailed feature description
+
+Clusters nearby weak ayahs per surah; pads for context; outputs passage preview. Sessions tagged **Review** vs **Regular** in setup, history, and summary.
+
+#### User workflow
+
+Weak ayat page → **Generate review** → adjust passages on preview (reuse §8.3 passage cards) → **Begin review** → live mode.
+
+#### UI/UX requirements
+
+- Preview screen between generator and live mode
+- Session setup badge: `Review session` | `Regular session`
+- History type chip on session rows
+- Warning if total verses > 80 (non-blocking)
+- CTA on profile when ≥3 persistent weak ayahs
+
+#### Expected outputs
+
+```
+Weak ayat: Taha 64, Taha 109 → Generated: Taha 60–110
+```
+
+#### Benefits
+
+Faster review prep; natural grouping; auditable session types.
+
+---
+
+### 13.3 Smart Review Planner
+
+#### Purpose
+
+Daily and weekly prioritized review lists with scores and time estimates.
+
+#### Problem it solves
+
+Existing review recommendations (§8.2 profile) lack time-boxing and weekly scheduling.
+
+#### Detailed feature description
+
+Priority scores from mastery, mistakes, staleness, weak-ayat rank, trend. Today's top 3–5 items + weekly grid with suggested slots and estimated minutes.
+
+#### User workflow
+
+Profile **Review plan** strip → today's list → tap item → session setup → optional **Start today's plan** (multi-passage).
+
+#### UI/UX requirements
+
+- Route: `/students/[id]/review-plan`
+- Numbered list with priority score (0–100) and reason chips
+- Weekly: horizontal scroll (mobile) / 7-column grid (desktop)
+- Circle dashboard: *"N students have review due today"*
+- Distinct visual treatment from M4 review recommendations block
+
+#### Expected outputs
+
+```
+Today's Review Plan:
+1. Al-Ghashiyah (Priority 94)
+2. At-Tariq (Priority 86)
+3. Taha 57–80 (Priority 80)
+```
+
+#### Benefits
+
+Consistent prioritization; time budgeting for circle length.
+
+---
+
+### 13.4 Weakness Pattern Analytics
+
+#### Purpose
+
+Category-level mistake patterns with trends over time.
+
+#### Problem it solves
+
+Per-session charts do not show longitudinal patterns like chronic hesitation or similar-verse confusion.
+
+#### Detailed feature description
+
+Donut/bar charts for memorization, tajweed, behavior. Top subcategory per category with %. Trend vs prior period. Drill to affected ayat list.
+
+#### User workflow
+
+Profile → **Insights** → select 30/90/365 days → read charts → drill subcategory → ayah list.
+
+#### UI/UX requirements
+
+- Route: `/students/[id]/insights`
+- Three highlight cards (memorization / tajweed / behavior top issue)
+- Trend arrows with percentage point delta
+- WCAG: labels + percentages, not color-only
+- Feed data into parent report preview (§13.5)
+
+#### Expected outputs
+
+```
+Similar Verse Confusion (38%) · Madd (27%) · Hesitation (41%)
+```
+
+#### Benefits
+
+Pattern-aware teaching; measurable intervention impact.
+
+---
+
+### 13.5 Parent Report Generator
+
+#### Purpose
+
+Professional parent-facing reports with PDF, print, and share link.
+
+#### Problem it solves
+
+Ad-hoc parent updates are inconsistent and time-consuming.
+
+#### Detailed feature description
+
+Monthly or custom range. Sections: memorized/reviewed verses, sessions, mastery, strengths, improvements, curated teacher notes. WYSIWYG preview.
+
+#### User workflow
+
+`/students/[id]/reports` → pick period → preview → toggle notes → Export PDF / Print / Copy link.
+
+#### UI/UX requirements
+
+- A4 print stylesheet; preview matches export
+- Share link: read-only, optional expiry, minimal PII
+- Sticky export footer on mobile
+- Watermark: platform name + generation date
+
+#### Expected outputs
+
+```
+Student: Yusuf · June 2026 · Memorized: 48 · Reviewed: 180 · Mastery: 89%
+```
+
+#### Benefits
+
+Saves teacher time; improves parent trust.
+
+---
+
+### 13.6 Progress Timeline
+
+#### Purpose
+
+Chronological milestone narrative plus optional activity heatmap.
+
+#### Problem it solves
+
+Session tables lack story; parents ask *"what did they achieve this term?"*
+
+#### Detailed feature description
+
+Monthly grouped events: surah started/completed, juz milestones, mastery gains, review milestones. Optional GitHub-style 12-month session heatmap.
+
+#### User workflow
+
+`/students/[id]/timeline` → scroll milestones → tap for contributing sessions → embed excerpt in parent report.
+
+#### UI/UX requirements
+
+- Vertical timeline with month headers and type icons
+- Heatmap toggle; 7×52 grid with intensity legend
+- `prefers-reduced-motion`: no scroll-reveal animations
+- Empty months collapsible
+
+#### Expected outputs
+
+```
+Jan: Started Taha · Feb: Completed Taha · Apr: Completed Juz 30
+```
+
+#### Benefits
+
+Motivation narrative; meeting prep; consistency at a glance.
+
+---
+
+### 13.7 AI Session Summary (Future Feature)
+
+#### Purpose
+
+Natural-language post-session insights for teachers and parents.
+
+#### Problem it solves
+
+Manual synthesis after each session; parents need readable prose.
+
+#### Detailed feature description
+
+Async LLM card on summary page: performance summary, main challenge, review suggestion, trend vs recent sessions. Editable before save. Admin feature flag off by default.
+
+#### User workflow
+
+End session → summary → AI card loads → teacher edits → save to session note or parent report.
+
+#### UI/UX requirements
+
+- Card on §8.6 summary below mastery chart
+- Shimmer loading; clear *AI-generated — review before sharing*
+- Teacher opt-out in settings
+- No AI UI during live mode
+
+#### Expected outputs
+
+```
+Strong memorization today. Main challenge: Similar verse confusion.
+Recommended review: Taha 60–90. +8% vs recent sessions.
+```
+
+#### Benefits
+
+Faster debrief; foundation for AI-assisted teaching.
+
+**Status:** Future — Phase 7b or later.
+
+---
+
+### 13.8 Intelligence hub on student profile (integration)
+
+Extend §8.2 Student Profile with an **Insights** section (desktop: right column; mobile: below mastery map):
+
+| Block | Content |
+|-------|---------|
+| Weak ayat (top 3) | Link to §13.1 |
+| Review plan today | Link to §13.3 |
+| Pattern snapshot | Top issue per category — link to §13.4 |
+| Timeline teaser | Latest milestone — link to §13.6 |
+| Parent report | Last generated / *Create report* — link to §13.5 |
+
+Primary CTA **Start Session** remains unchanged; intelligence blocks are secondary.
 
 ---
 

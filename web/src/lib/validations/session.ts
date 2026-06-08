@@ -23,6 +23,7 @@ const passageSchema = z
 export const createSessionSchema = z.object({
   studentId: z.string().uuid(),
   passages: z.array(passageSchema).min(1),
+  sessionType: z.enum(["regular", "review"]).optional().default("regular"),
 });
 
 export const verseUpdateSchema = z.object({

@@ -13,9 +13,14 @@ import { CircleFormModal } from "@/components/circles/CircleFormModal";
 type CircleRosterProps = {
   circle: CircleDetail;
   students: StudentListItem[];
+  reviewDueCount?: number;
 };
 
-export function CircleRoster({ circle, students }: CircleRosterProps) {
+export function CircleRoster({
+  circle,
+  students,
+  reviewDueCount = 0,
+}: CircleRosterProps) {
   const [search, setSearch] = useState("");
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [showEditCircle, setShowEditCircle] = useState(false);
@@ -48,6 +53,13 @@ export function CircleRoster({ circle, students }: CircleRosterProps) {
           </Button>
         </div>
       </div>
+
+      {reviewDueCount > 0 && (
+        <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {reviewDueCount} student{reviewDueCount !== 1 ? "s" : ""} have review
+          due today
+        </p>
+      )}
 
       <input
         type="search"

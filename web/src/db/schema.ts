@@ -13,6 +13,7 @@ import {
 export const userRoleEnum = pgEnum("user_role", ["teacher", "admin"]);
 export const userStatusEnum = pgEnum("user_status", ["active", "suspended"]);
 export const reviewSourceEnum = pgEnum("review_source", ["manual", "algorithm"]);
+export const sessionTypeEnum = pgEnum("session_type", ["regular", "review"]);
 export const noteScopeEnum = pgEnum("note_scope", [
   "verse",
   "session",
@@ -44,6 +45,9 @@ export const users = pgTable("users", {
     .notNull()
     .defaultNow(),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  preferencesJson: jsonb("preferences_json")
+    .$type<{ quran_display_mode?: "structured" | "mushaf" }>()
+    .default({}),
 });
 
 export const circles = pgTable("circles", {
@@ -120,6 +124,7 @@ export const recitationSessions = pgTable("recitation_sessions", {
     .defaultNow(),
   endedAt: timestamp("ended_at", { withTimezone: true }),
   durationSeconds: integer("duration_seconds"),
+  sessionType: sessionTypeEnum("session_type").notNull().default("regular"),
   summaryJson: jsonb("summary_json"),
 });
 
@@ -241,6 +246,24 @@ export const featureFlags = pgTable("feature_flags", {
   enabled: boolean("enabled").notNull().default(false),
   description: text("description"),
   scope: varchar("scope", { length: 32 }).notNull().default("global"),
+});
+
+export const parentReportShares = pgTable("parent_report_shares", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  studentId: uuid("student_id")
+    .notNull()
+    .references(() => students.id, { onDelete: "cascade" }),
+  teacherId: uuid("teacher_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+  periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+  payloadJson: jsonb("payload_json").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export const configAuditLog = pgTable("config_audit_log", {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
+import { SessionTypeBadge } from "@/components/insights/SessionTypeBadge";
 import { formatRelativeDate, formatSurahRange } from "@/lib/format";
 import type { SessionListItemDto } from "@/lib/queries/sessions";
 
@@ -44,6 +45,7 @@ export function SessionHistoryList({
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
                 {formatPassages(session.passages)}
+                <SessionTypeBadge sessionType={session.sessionType} />
               </p>
               <p className="text-xs text-muted">
                 {session.endedAt

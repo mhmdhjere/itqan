@@ -126,6 +126,13 @@ export const defaultAppConfig: DefaultConfigEntry[] = [
     label: "Ayah marker style",
   },
   {
+    key: "display.quran_mode",
+    value: "structured",
+    valueType: "string",
+    category: "display",
+    label: "Default Quran display mode",
+  },
+  {
     key: "system.session_immutability_hours",
     value: 48,
     valueType: "number",
@@ -156,6 +163,31 @@ export const defaultFeatureFlags = [
     key: "features.offline_queue",
     enabled: false,
     description: "Queue session marks offline (future)",
+  },
+  {
+    key: "features.weak_ayat_engine",
+    enabled: true,
+    description: "Repeated weak ayat engine and UI",
+  },
+  {
+    key: "features.review_planner",
+    enabled: true,
+    description: "Smart daily/weekly review planner",
+  },
+  {
+    key: "features.parent_reports",
+    enabled: true,
+    description: "Parent report generator and share links",
+  },
+  {
+    key: "features.ai_session_summary",
+    enabled: false,
+    description: "AI-generated session insights (future)",
+  },
+  {
+    key: "features.mushaf_display",
+    enabled: true,
+    description: "Mushaf page display mode in live sessions",
   },
 ];
 
