@@ -1,7 +1,7 @@
 # Quran Circle Management Platform — UI/UX Specification
 
-**Version:** 1.0 (draft)  
-**Status:** Awaiting approval — no code to be written until signed off  
+**Version:** 1.0  
+**Status:** Approved — mock UI implementation in `web/` (no backend)  
 **Sources:** `APP_DESIGN.md`, `IMPLEMENTATION_PLAN.md`  
 **Register:** Product UI (teacher-facing app; admin panel out of scope for this document)
 
@@ -38,7 +38,7 @@ Every screen, component, and interaction is judged against this sentence. If a f
 |----------|-------------------------|------------------|
 | 1 | Student's voice & recitation | Shows Quran passively; no animations, no alerts |
 | 2 | Marking an exceptional verse | Single-gesture status capture |
-| 3 | Adding mistake detail | Optional long-press; never required for basic capture |
+| 3 | Adding mistake detail | 3rd tap opens panel; optional chip tags |
 | 4 | Session control | Undo + End only in footer; no nav chrome |
 
 ### 1.3 Assumption model (critical)
@@ -117,7 +117,7 @@ Live Recitation Mode is not a "feature screen" — it is **the product**. All ot
 | Read along with student (Quran display) | Continuous | 0 interactions |
 | Mark verse that needed reminder | Occasional | ≤2 interactions |
 | Mark verse needing second attempt / prompting / incomplete | Occasional | ≤2 interactions |
-| Tag specific mistake types | Rare | ≤4 interactions (long press path) |
+| Tag specific mistake types | Rare | 3rd tap + chip toggles + Done |
 | Correct a mis-tap | Rare | 1 interaction (undo) |
 | End session | Once | 2 interactions (tap + confirm) |
 
@@ -134,45 +134,35 @@ Live Recitation Mode is not a "feature screen" — it is **the product**. All ot
 │   RTL Arabic · ayah markers · verse hit-targets               │
 │   Only marked verses show status tint                         │
 ├──────────────────────────────────────────────────────────────┤
-│ REGION C: Quick Status Rail (optional, collapsible)           │
-│   Last-used statuses · most common 2 — single tap, no verse   │
+│ REGION C: Tap hint strip (one line)                           │
+│   "Tap: 2nd attempt → 3rd attempt → mistakes"               │
 ├──────────────────────────────────────────────────────────────┤
 │ REGION D: Session Footer (sticky, 56–64px)                    │
 │   [Undo]                              [End Session]           │
 └──────────────────────────────────────────────────────────────┘
 
-OVERLAY E: Verse Status Picker (on tap — radial or bottom sheet)
-OVERLAY F: Long-Press Detail Panel (mistakes + note)
-OVERLAY G: End Session Confirm (sheet / dialog)
+OVERLAY E: Mistakes Detail Panel (opens on 3rd tap — mistakes + note)
+OVERLAY F: End Session Confirm (sheet / dialog)
 ```
 
-### 3.4 Verse interaction model (recommended default)
+### 3.4 Verse interaction model (attempt cycle — approved)
 
-Admin key `live.tap_mode` supports `radial` (recommended) or `cycle`.
+**No status picker. No long press.** Each tap on an ayah advances state immediately.
 
-#### Mode A — Radial quick-pick (recommended default)
+| Tap # | State (unmarked ayah) | Result |
+|-------|----------------------|--------|
+| **1st** | Unmarked | Immediately → `second_attempt` (orange tint) |
+| **2nd** | `second_attempt` | Immediately → `third_attempt` (red tint) |
+| **3rd** | `third_attempt` | Opens mistakes detail panel |
+| **4th+** | Has mistakes / `third_attempt` | Reopens mistakes panel |
 
-1. Teacher **taps** ayah hit-target.
-2. Radial menu appears **anchored to tap point** with 4 exception statuses (excludes Correct).
-3. Teacher **taps a status** → menu closes → ayah gets status tint → exception count increments.
-4. **Total: 2 taps** per exceptional verse.
+**To record mistakes only:** Teacher still taps 3 times (2nd → 3rd → panel). Status progression is the gate to mistakes — keeps one gesture vocabulary.
 
-Correct is never in the menu — to clear a mark, use Undo or tap again → "Clear mark".
+**Undo** reverts the last tap or panel save. There is no tap-to-clear; use Undo to step back through the cycle.
 
-#### Mode B — Cycle (alternative)
-
-1. Tap ayah → cycles: unmarked → reminder → second_attempt → prompting → incomplete → unmarked.
-2. **Total: 1–5 taps** depending on target status. Worse for distant statuses; enable only if radial feels cluttered on small phones.
-
-#### Long press (both modes)
-
-1. Press ayah ≥ `live.long_press_ms` (default 500ms).
-2. Detail panel opens; haptic pulse at threshold.
-3. Teacher toggles mistake chips (multi-select); optional note.
-4. Tap **Done** or swipe down → panel closes. Status unchanged unless separately set via tap.
-5. **Total: 1 long press + N chip taps + 1 dismiss.**
-
-**Decoupling:** Status (tap) and mistakes (long press) are independent. A verse can have status without mistakes, mistakes without status change (inherits implicit correct until tap), or both.
+**Interaction budget per exceptional verse:**
+- Status only (2nd + 3rd attempt): **2 taps**
+- With mistakes: **3 taps + chip toggles + Done**
 
 ### 3.5 Passive behaviors (zero teacher input)
 
@@ -199,7 +189,7 @@ Correct is never in the menu — to clear a mark, use Undo or tap again → "Cle
 | Scenario | UX response |
 |----------|---------------|
 | Accidental tap | Undo (reverts last mark/panel save) |
-| Accidental long press | Release before threshold = scroll; or tap outside to close empty panel |
+| Accidental 3rd tap (panel opens) | Tap outside or swipe down to close without saving |
 | Network loss | Continue locally; queue sync; subtle "Saving offline" in chrome |
 | App backgrounded | Timer pauses; state persisted |
 | Session idle 30+ min | Soft prompt: "Still reciting?" — no auto-end |
@@ -219,10 +209,10 @@ Correct is never in the menu — to clear a mark, use Undo or tap again → "Cle
 | 3 | T−3min | Taps **Start Session** (plan pre-filled: Taha 57–80) | → Session Setup | 1 tap |
 | 4 | T−2min | Reviews pre-filled range, taps **Begin Recitation** | → Live Mode | 1 tap |
 | 5 | T−0 | Timer starts; Quran scrolls to ayah 57; listens | Live Mode | 0 |
-| 6 | T+2min | Ayah 62: student needed reminder | Live Mode | 1 tap ayah + 1 tap Reminder = **2** |
-| 7 | T+4min | Ayah 65: tajweed issue — long press, tap Madd + Ghunnah, Done | Live Mode | 1 long press + 2 chips + 1 Done = **4** |
-| 8 | T+6min | Ayah 71: second attempt | Live Mode | **2** |
-| 9 | T+8min | Ayah 74: prompting required | Live Mode | **2** |
+| 6 | T+2min | Ayah 62: needed 2nd attempt only | Live Mode | **1 tap** |
+| 7 | T+4min | Ayah 65: 2nd + 3rd + mistakes (Madd, Ghunnah) | Live Mode | 3 taps + 2 chips + Done = **6** |
+| 8 | T+6min | Ayah 71: 2nd + 3rd attempt | Live Mode | **2 taps** |
+| 9 | T+8min | Ayah 74: full cycle with hesitation tag | Live Mode | **3 taps** + chips + Done |
 | 10 | T+10min | Student finishes ayah 80 | Live Mode | 0 |
 | 11 | T+11min | Taps **End Session** → confirms | Live Mode | **2** |
 | 12 | T+12min | Reviews summary, taps **Back to Yusuf** | Summary | 1 tap |
@@ -280,11 +270,12 @@ sequenceDiagram
 | Input | Context | Result |
 |-------|---------|--------|
 | Tap | Button, link, card | Navigate or action |
-| Tap | Ayah (live mode) | Open status picker / cycle status |
-| Long press (≥500ms) | Ayah (live mode) | Open detail panel |
+| Tap (1st) | Ayah (live mode) | Mark 2nd attempt immediately |
+| Tap (2nd) | Same ayah | Mark 3rd attempt immediately |
+| Tap (3rd) | Same ayah | Open mistakes detail panel |
 | Scroll / swipe vertical | Quran canvas | Scroll text |
 | Swipe down | Detail panel | Dismiss panel |
-| Tap outside | Radial menu | Close without change |
+| Tap outside | Mistakes panel | Close without saving |
 | Keyboard `Z` / `Ctrl+Z` | Live mode desktop | Undo |
 | Keyboard `Esc` | Overlays | Close overlay |
 | Keyboard `1–4` | Live mode desktop | Quick-assign status to last tapped ayah |
@@ -305,17 +296,14 @@ sequenceDiagram
 
 ```
 Ayah tapped
-├── Radial mode
-│   ├── Tap status → mark verse → +1 exception (if not already marked)
-│   ├── Tap "Clear" → remove mark → -1 exception
-│   └── Tap outside → no change
-├── Cycle mode
-│   └── Each tap → next status in cycle
-└── Long press
-    ├── Toggle mistake chips (multi)
-    ├── Optional note (collapsed by default)
-    ├── Done → save tags, close
-    └── Cancel / swipe → close without saving new tags
+├── Unmarked → 1st tap → second_attempt (immediate)
+├── second_attempt → 2nd tap → third_attempt (immediate)
+├── third_attempt → 3rd tap → open mistakes panel
+│   ├── Toggle mistake chips (multi)
+│   ├── Optional note (collapsed by default)
+│   ├── Done → save tags, close
+│   └── Cancel / swipe → close without saving new tags
+└── Undo → revert last tap or panel save
 ```
 
 ---
@@ -329,26 +317,14 @@ Ayah tapped
 | 1 | **Implicit correct** — no tap for good verses | ~90% of potential taps | MVP |
 | 2 | **Plan pre-fill** on session setup | 3–5 setup taps | MVP |
 | 3 | **Quick Start** from student profile | 1 navigation step | MVP |
-| 4 | **Radial picker** vs cycle | 1–3 taps per mark | MVP |
-| 5 | **Quick Status Rail** — mark last-focused ayah with one tap | 1 tap when ayah still focused | MVP |
-| 6 | **Undo** instead of "clear" flow | Reduces error recovery cost | MVP |
-| 7 | Mistake chips without mandatory note | 1 fewer field | MVP |
+| 4 | **3-tap attempt cycle** — no picker overlay | Zero decision UI during listen | MVP |
+| 5 | **Undo** instead of tap-to-clear | Reduces error recovery cost | MVP |
+| 6 | Mistake chips without mandatory note | 1 fewer field | MVP |
 | 8 | Auto-save + offline queue | Prevents re-entry | Phase 5 |
 | 9 | Resume interrupted session | Full setup avoided | Phase 5 |
 | 10 | Desktop keyboard shortcuts | Power users | Phase 5 |
 
-### 6.2 Quick Status Rail (Region C)
-
-When teacher taps an ayah, it becomes **focused** (subtle outline, 8s timeout). The rail shows:
-
-- **Reminder** | **Second Attempt** (configurable: two most-used statuses)
-- Tapping a rail button applies that status to the **focused ayah** without opening radial.
-
-**Benefit:** Repeat marking of same status → **1 tap** instead of 2.
-
-Rail collapses to zero height when no ayah is focused — does not steal canvas space while listening.
-
-### 6.3 Session setup pre-fill logic
+### 6.2 Session setup pre-fill logic
 
 | Field | Pre-fill source | Editable |
 |-------|-----------------|----------|
@@ -360,7 +336,7 @@ Rail collapses to zero height when no ayah is focused — does not steal canvas 
 
 Banner on setup: *"Using Yusuf's current memorization plan. Adjust if needed."*
 
-### 6.4 End-of-session inference
+### 6.3 End-of-session inference
 
 On **End Session**, system computes:
 
@@ -410,7 +386,7 @@ This keeps the database lean and the live UI fast.
 
 - Status mark: 150ms background fade-in (no bounce)
 - Panel: 250ms slide-up (mobile) / 200ms slide-in-right (desktop)
-- Radial menu: 120ms scale-in
+- Status tint: 150ms fade-in on 1st/2nd tap
 - **Respect `prefers-reduced-motion`**
 
 ---
@@ -589,30 +565,30 @@ Two-column: left (identity + CTA + plan), right (stats + map + sessions).
 
 #### Purpose
 
-- Confirm **who**, **what**, and **how much** before live mode.
+- Confirm **who**, **which passages**, and **how much** before live mode.
+- Support **multiple surahs**, each with its own from–to ayah range (e.g. new hifz + review).
 - Last checkpoint before locking attention on listening.
-- Should take **<10 seconds** with pre-fill.
+- Should take **<15 seconds** with plan pre-fill (current + review targets).
 
 #### User actions
 
 | Action | Input | Result |
 |--------|-------|--------|
-| Change surah | Tap surah picker | Searchable list 114 surahs |
-| Change start ayah | Tap / stepper | Clamped 1–surah length |
-| Change end ayah | Tap / stepper | ≥ start, ≤ surah length |
-| Use plan defaults | Tap reset link | Revert to memorization plan |
+| Edit passage | Surah picker + from/to per row | Updates one range |
+| Add passage | Tap "+ Add another surah" | New empty range row |
+| Remove passage | Tap Remove (when ≥2 rows) | Deletes range row |
+| Use plan defaults | Tap reset link | Current plan + review targets as separate rows |
 | Begin | Tap primary CTA | Create session → Live mode |
 | Cancel | Tap back | → Student profile, no session |
 
 #### Components
 
-- **Student chip:** Name (locked), avatar
-- **Surah select:** Arabic + transliterated name, search
-- **Ayah range:** Start / End inputs with validation
-- **Verse count preview:** "24 verses in this session"
-- **Plan hint banner:** Source of pre-fill
+- **Student chip:** Name (locked)
+- **Passage list:** Repeatable cards — surah select + from/to per passage
+- **Add passage button:** Appends new surah range row
+- **Totals line:** "42 verses across 3 passages"
+- **Plan hint banner:** Pre-fill from current + review
 - **Primary CTA:** `Begin Recitation`
-- **Secondary:** `Save as new default plan` (optional checkbox)
 
 #### Mobile layout
 
@@ -622,36 +598,39 @@ Two-column: left (identity + CTA + plan), right (stats + map + sessions).
 ├─────────────────────────┤
 │ Student: Yusuf          │
 ├─────────────────────────┤
-│ Surah                   │
-│ ┌─────────────────────┐ │
-│ │ Surah Taha (20)   ▼ │ │
-│ └─────────────────────┘ │
-│ From ayah  [ 57 ]       │
-│ To ayah    [ 80 ]       │
-│                         │
-│ 24 verses in session    │
+│ Passage 1               │
+│ Surah Taha (20)      ▼  │
+│ From [57]  To [80]      │
+│ 24 verses               │
 ├─────────────────────────┤
-│ ℹ From Yusuf's plan     │
-│   [Reset to plan]       │
+│ Passage 2          [×]  │
+│ Surah Al-A'la (87)   ▼  │
+│ From [1]   To [19]      │
+│ 19 verses               │
 ├─────────────────────────┤
-│ ┌─────────────────────┐ │
-│ │  BEGIN RECITATION   │ │
-│ └─────────────────────┘ │
+│ [+ Add another surah]   │
+│ 43 verses · 2 passages  │
+├─────────────────────────┤
+│ ℹ From plan [Reset]     │
+├─────────────────────────┤
+│ [ BEGIN RECITATION ]    │
 └─────────────────────────┘
 ```
 
 #### Desktop layout
 
-Centered narrow card (max 480px) — same fields, horizontal ayah inputs.
+Centered card (max 520px) — stacked passage cards, same fields.
 
 #### Edge cases
 
 | Case | Behavior |
 |------|----------|
-| end < start | Inline error, CTA disabled |
-| Range > 100 verses | Warning: "Long session — consider splitting" (non-blocking) |
-| Single ayah | start = end allowed |
-| Student has no plan | Empty surah; teacher must select |
+| end < start on any row | That row invalid; CTA disabled |
+| Only one passage | Remove button hidden |
+| Duplicate surah ranges | Allowed (e.g. Taha 1–20 and Taha 50–60) |
+| Total > 100 verses | Warning: "Long session" (non-blocking) |
+| Single ayah per row | start = end allowed |
+| Student has no plan | One empty passage row |
 | Concurrent draft | Prompt: resume or replace |
 
 ---
@@ -671,21 +650,20 @@ Centered narrow card (max 480px) — same fields, horizontal ayah inputs.
 | Action | Input | Result |
 |--------|-------|--------|
 | Scroll Quran | Swipe / scroll | Move through ayahs |
-| Mark status | Tap ayah → pick status | Status tint; exception++ |
-| Quick status | Tap rail button (when ayah focused) | Apply status in 1 tap |
-| Add mistakes | Long press ayah | Open detail panel |
+| Mark 2nd attempt | 1st tap on ayah | Immediate orange tint |
+| Mark 3rd attempt | 2nd tap on same ayah | Immediate red tint |
+| Add mistakes | 3rd tap on same ayah | Open detail panel |
 | Undo | Tap Undo | Revert last mark/tag save |
 | End session | Tap End → Confirm | → Summary |
 | Pause timer | Optional: tap timer | Timer pause (admin flag) |
 
 #### Components
 
-- **Session chrome (A):** Student name, surah + range, timer, exception count
-- **Quran canvas (B):** RTL flow, ayah markers, hit-targets, status tints
-- **Quick status rail (C):** Collapsible; 2 shortcut statuses
+- **Session chrome (A):** Student name, passage summary (N passages · M verses), timer, exception count
+- **Tap hint strip (C):** One-line reminder of 3-tap cycle
+- **Quran canvas (B):** RTL flow, ayah markers, hit-targets, status tints + attempt labels
 - **Footer (D):** Undo (disabled when stack empty), End Session (destructive outline)
-- **Radial picker (E):** 4 statuses + Clear, positioned at touch
-- **Focus indicator:** Subtle ring on last tapped ayah
+- **Mistakes panel (E):** Opens on 3rd tap; bottom sheet (mobile) / side panel (desktop)
 
 #### Mobile layout (portrait)
 
@@ -703,27 +681,11 @@ Centered narrow card (max 480px) — same fields, horizontal ayah inputs.
 │  └───────────────────┘  │
 │         ...             │
 ├─────────────────────────┤
-│ [Reminder] [2nd try]    │  ← rail when ayah focused
+│ Tap: 2nd → 3rd → mistakes│
 ├─────────────────────────┤
 │ [Undo]      [End Session]│
 └─────────────────────────┘
 ```
-
-#### Mobile layout (landscape — preferred for tablet)
-
-```
-┌────────────────────────────────────────────────────────────┐
-│ Yusuf · Taha 57–80        ⏱ 4:02        Exceptions: 3    │
-├──────────────────────────────────────────┬─────────────────┤
-│                                          │ [Reminder]      │
-│         Quran canvas (wider)             │ [2nd Attempt]   │
-│                                          │                 │
-│                                          │ [Undo]          │
-│                                          │ [End Session]   │
-└──────────────────────────────────────────┴─────────────────┘
-```
-
-Landscape moves rail + footer actions to a **narrow right rail** (72px) to maximize Quran width.
 
 #### Desktop layout
 
@@ -731,15 +693,13 @@ Landscape moves rail + footer actions to a **narrow right rail** (72px) to maxim
 ┌────────────────────────────────────────────────────────────────┐
 │ Yusuf · Surah Taha (57–80)     ⏱ 4:02     Exceptions: 3      │
 ├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│                    Quran canvas (max-width 720px, centered)    │
-│                                                                │
+│ Tap ayah: 2nd attempt → 3rd attempt → mistakes               │
 ├────────────────────────────────────────────────────────────────┤
-│ [Reminder] [2nd Attempt]          [Undo]    [End Session]      │
+│                    Quran canvas (max-width 720px, centered)    │
+├────────────────────────────────────────────────────────────────┤
+│ [Undo]                                    [End Session]        │
 └────────────────────────────────────────────────────────────────┘
 ```
-
-Keyboard shortcuts shown on `?` overlay.
 
 #### Edge cases
 
@@ -748,8 +708,8 @@ Keyboard shortcuts shown on `?` overlay.
 | No marks entire session | End still valid; summary shows 100% implicit |
 | All verses marked | Allowed; heavy session |
 | Undo exhausted | Button disabled; tooltip "Nothing to undo" |
-| Long press during scroll | Movement cancels long press |
-| Double tap ayah | Radial: second tap selects; Cycle: advances |
+| Rapid taps | Each tap advances cycle; Undo steps back one step |
+| 3rd tap opens panel accidentally | Close panel without Done; status stays at 3rd attempt |
 | Leave mid-session (back gesture) | Confirm: "Leave session? Progress saved." |
 | Exception count | Counts verses with non-clear status + verses with mistake tags only |
 | Very long range (50+ ayahs) | Virtualized list; scroll-to-start on enter |
@@ -757,21 +717,21 @@ Keyboard shortcuts shown on `?` overlay.
 
 ---
 
-### 8.5 Long-Press Detail Panel
+### 8.5 Mistakes Detail Panel (3rd Tap)
 
 **Overlay on Live Mode** — not a separate route.
 
 #### Purpose
 
-- Capture **mistake taxonomy** and optional notes without leaving the Quran view.
-- Optional — never required to complete a session.
-- Keeps listening flow: open → tap chips → dismiss.
+- Capture **mistake taxonomy** and optional notes after 2nd and 3rd attempt are recorded.
+- Opens on **3rd tap** of the same ayah (replaces long press).
+- Keeps listening flow: tap → tap → tap → chips → Done.
 
 #### User actions
 
 | Action | Input | Result |
 |--------|-------|--------|
-| Open | Long press ayah | Panel slides in; ayah context shown |
+| Open | 3rd tap on ayah (at `third_attempt`) | Panel slides in; ayah context shown |
 | Toggle mistake | Tap chip | Multi-select toggle |
 | Add note | Tap "Add note" expander | Text area (optional) |
 | Save & close | Tap Done / swipe down | Persist tags; close |
@@ -834,7 +794,7 @@ Quran remains visible and scrollable; panel does not cover canvas on desktop.
 | No chips selected, Done | Close; no mistake records (status unaffected) |
 | 10+ chips selected | Allowed; scroll chip area |
 | Note only, no chips | Save note attached to ayah record |
-| Long press without prior tap | Creates implicit verse record if needed |
+| 3rd tap without prior attempts | Should not occur — panel only opens at `third_attempt` |
 | Admin deactivated a chip | Hidden in UI; historical sessions retain slug |
 | Dirty close | "Discard changes?" if chips toggled |
 
@@ -1046,7 +1006,7 @@ stateDiagram-v2
 
 - WCAG 2.1 AA contrast on all chrome (Quran text follows readable font size, not contrast rules on glyphs)
 - Ayah hit-targets: min 44px regardless of glyph size
-- Radial menu: keyboard navigable (arrow keys + Enter)
+- Mistakes panel: keyboard navigable (Tab through chips)
 - Screen reader: ayah announced as "Ayah 57, Surah Taha, marked reminder required"
 - Focus trap in detail panel and end-session confirm
 - `prefers-reduced-motion`: instant state changes, no slide animations
@@ -1055,14 +1015,12 @@ stateDiagram-v2
 
 | Breakpoint | Width | Layout behavior |
 |------------|-------|-----------------|
-| Mobile S | <375px | Compact chrome; radial not radial-fan (bottom sheet picker instead) |
+| Mobile S | <375px | Compact chrome; full-width mistakes bottom sheet |
 | Mobile | 375–767px | Bottom sheets; portrait live mode |
 | Tablet | 768–1023px | Landscape live mode preferred; side panel for detail |
 | Desktop | ≥1024px | Sidebar shell; keyboard shortcuts in live mode |
 
 ### 10.3 Mobile S fallback
-
-On screens <375px, radial menu becomes **compact bottom sheet status picker** (same 4 options) to avoid off-screen menu items.
 
 ---
 
@@ -1072,11 +1030,9 @@ These admin-controlled keys directly affect teacher UI (see `IMPLEMENTATION_PLAN
 
 | Key | Default | UI effect |
 |-----|---------|-----------|
-| `live.long_press_ms` | 500 | Panel open threshold |
-| `live.tap_mode` | radial | Tap interaction model |
+| `live.tap_mode` | attempt_cycle | 1st tap = 2nd attempt; 2nd = 3rd; 3rd = mistakes panel |
 | `live.undo_depth` | 10 | Undo stack size |
 | `live.auto_start_timer` | true | Timer on live enter |
-| `live.quick_rail_statuses` | reminder, second_attempt | Rail button labels |
 | `display.quran_font` | Uthmani | Canvas typography |
 | `display.quran_font_size` | 22 | Canvas font size |
 | `display.theme_live` | light | Live mode color scheme |
@@ -1093,9 +1049,8 @@ Confirm before implementation:
 
 | # | Decision | Recommendation |
 |---|----------|----------------|
-| 1 | Default tap mode: radial or cycle? | **Radial** |
-| 2 | Quick Status Rail in MVP? | **Yes** |
-| 3 | Landscape lock prompt on tablet? | Soft suggestion first time |
+| 1 | Tap interaction model | **Resolved** — 3-tap attempt cycle (no picker) |
+| 2 | Landscape lock prompt on tablet? | Soft suggestion first time |
 | 4 | End session require confirm? | **Yes** — prevent accidental end |
 | 5 | Show exception count in chrome? | **Yes** — replaces "mistake count" label (includes all non-correct) |
 | 6 | Mastery map MVP: surah or ayah level? | **Surah grid** + ayah drill-down |

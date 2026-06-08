@@ -12,7 +12,7 @@ Every technical decision should serve these design constraints:
 |-----------|---------------------------|
 | **Assume correct by default** | No per-verse tap required; only record exceptions |
 | **Speed during live sessions** | Large touch targets, instant feedback, no modals for common actions |
-| **Long press for depth** | Quick tap = status; long press = mistakes, notes, detail |
+| **Tap to advance** | 1st tap = 2nd attempt; 2nd tap = 3rd attempt; 3rd tap = mistakes panel |
 | **Complete history** | Every session, verse event, and note is immutable audit data |
 | **Quality over completion** | Mastery scoring weights reminders/prompts, not just verse count |
 | **Configurable without deploys** | Scoring rules, taxonomies, and UX thresholds live in the admin panel — not hardcoded |
@@ -136,9 +136,12 @@ ReviewTarget
 ```
 RecitationSession
   - id, student_id, circle_id, teacher_id
-  - surah, start_ayah, end_ayah
   - started_at, ended_at, duration_seconds
   - summary_json (denormalized counts for fast reads)
+
+SessionPassage (1..n per session — new memorization + review in one sitting)
+  - id, session_id, sort_order
+  - surah, start_ayah, end_ayah
 
 VerseRecord (one per ayah touched in session; default = correct)
   - id, session_id, surah, ayah
@@ -220,15 +223,20 @@ ConfigAuditLog (append-only)
 |--------|-----|----------|
 | Correct | No action | **Yes (implicit)** |
 | Reminder Required | Single quick action |
-| Second Attempt | Single quick action |
-| Prompting Required | Single quick action |
-| Incomplete | Single quick action |
+| Second Attempt | 1st tap on ayah (immediate) |
+| Third Attempt | 2nd tap on ayah (immediate) |
+| Prompting Required | Admin-only / legacy status |
+| Incomplete | Admin-only / legacy status |
 
-**Interaction model:**
+**Interaction model (attempt cycle — no picker):**
 
-- **Tap verse** → cycle or picker for status (configurable: cycle vs. radial menu)
-- **Long press (≥500ms)** → slide-over panel: mistake tags + notes
-- **Undo** — last action within session (critical for live flow)
+- **1st tap** on ayah → immediately mark `second_attempt`
+- **2nd tap** on same ayah → immediately mark `third_attempt`
+- **3rd tap** on same ayah → open mistakes panel (tags + optional note)
+- Further taps on ayah with mistakes → reopen mistakes panel
+- **Undo** — reverts last mark or panel save (critical for live flow)
+
+No status picker overlay. No long press during live session.
 
 ### 5.2 Mistake subcategories (admin-managed, seeded defaults)
 
@@ -253,6 +261,7 @@ Define a **verse-level score** after each session, then roll up.
 | Correct (default) | 100 |
 | Reminder Required | 85 |
 | Second Attempt | 70 |
+| Third Attempt | 60 |
 | Prompting Required | 50 |
 | Incomplete | 0 |
 | Each mistake tag | −5 (floor at status base) |
@@ -322,7 +331,7 @@ The admin panel is a **first-class product surface** — not an afterthought. It
 | **Mastery scoring** | `mastery.status_points.*`, `mastery.mistake_penalty`, `mastery.rolling_window_sessions` | Session scores, dashboards, mastery map |
 | **Mastery map thresholds** | `mastery.map.memorized_min_score`, `mastery.map.stale_days`, `mastery.map.weak_mistake_count` | Heatmap states (§6) |
 | **Review engine** | `review.urgency_mistake_weight`, `review.urgency_mastery_weight`, `review.stale_day_divisor`, `review.max_recommendations` | Review suggestions (§12) |
-| **Live session UX** | `live.long_press_ms`, `live.tap_mode` (cycle \| menu), `live.undo_depth`, `live.auto_start_timer` | Live Recitation Mode (§9.2) |
+| **Live session UX** | `live.tap_mode` (attempt_cycle), `live.undo_depth`, `live.auto_start_timer` | Live Recitation Mode (§9.2) |
 | **Quran display** | `display.quran_font`, `display.quran_font_size`, `display.ayah_marker_style` | Interactive Quran view |
 | **Verse statuses** | Full CRUD on `VerseStatusDefinition` | Tap actions, colors, scoring |
 | **Mistake types** | Full CRUD on categories + subcategories | Long-press panel chips |
@@ -403,7 +412,7 @@ sequenceDiagram
 ├─────────────────────────────────────────────┤
 │                                             │
 │         Interactive Quran (scroll)          │  ← Arabic, RTL, ayah markers
-│         Tap = status · Long press = detail  │
+│    Tap: 2nd attempt → 3rd attempt → mistakes │
 │                                             │
 ├─────────────────────────────────────────────┤
 │ [Undo]  [End Session]                       │  ← minimal footer
@@ -419,12 +428,13 @@ sequenceDiagram
 - **No** required navigation away during session
 - Touch-first; keyboard shortcuts optional for desktop
 
-### 9.3 Long-press detail panel
+### 9.3 Mistakes detail panel (opens on 3rd tap)
 
 - Bottom sheet (mobile) / side panel (desktop)
+- Opens on 3rd tap of ayah (after 2nd and 3rd attempt marks)
 - Mistake category chips (multi-select)
 - Optional note field
-- Save closes panel; verse stays highlighted
+- Save closes panel; verse keeps attempt status + mistake tags
 
 ### 9.4 Session summary
 
@@ -491,11 +501,11 @@ sequenceDiagram
 
 **Goal:** End-to-end session flow usable in a real circle.
 
-- [ ] Session setup (student, surah, ayah range)
-- [ ] Live Recitation Mode UI (reads `live.*` config: long-press ms, tap mode, undo depth)
+- [ ] Session setup (student, multiple surah ranges — add/remove passages)
+- [ ] Live Recitation Mode UI (reads `live.*` config: attempt cycle, undo depth)
 - [ ] Interactive Quran view (range-limited scroll; font from `display.*` config)
-- [ ] Verse status recording (tap); statuses loaded from admin definitions
-- [ ] Long-press detail panel + dynamic mistake tags from admin taxonomy
+- [ ] 3-tap attempt cycle (1st = 2nd attempt, 2nd = 3rd attempt, 3rd = mistakes panel)
+- [ ] Mistakes detail panel on 3rd tap + dynamic mistake tags from admin taxonomy
 - [ ] Session timer + mistake counter
 - [ ] Undo last action
 - [ ] End session → persist + summary screen
@@ -612,7 +622,7 @@ Before coding, please confirm or adjust:
 1. **Stack:** Next.js + PostgreSQL OK, or prefer Cloudflare / other?
 2. **Auth:** Single teacher per account MVP, or multi-teacher circles from day one?
 3. **Admin scope:** One global admin, or multiple admins with same full access?
-4. **Verse tap UX:** Cycle through statuses vs. radial quick-pick menu? (Admin-configurable default.)
+4. **Verse tap UX:** **Resolved** — 3-tap attempt cycle (2nd → 3rd → mistakes panel). No picker.
 5. **Quran script:** Uthmani only, or translation/transliteration later?
 6. **Mastery formula:** Accept §6 default seeds or provide your own rubric before build?
 7. **Mastery map granularity:** Ayah-level from MVP, or surah-level first?

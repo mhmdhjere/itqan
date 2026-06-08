@@ -103,9 +103,9 @@ This transforms the platform from a tracking system into a teaching and planning
 Before starting a session, the teacher selects:
 
 * Student
-* Surah
-* Starting verse
-* Intended ending verse
+* One or more surahs, each with its own ayah range (from–to)
+
+Example: Surah Taha (57–80) + Al-A'la (1–19) for new memorization plus review in one session.
 
 The session then enters Live Recitation Mode.
 
@@ -167,7 +167,11 @@ Student needed a small reminder before self-correcting.
 
 ### Second Attempt
 
-Student required another attempt before succeeding.
+Student required another attempt before succeeding. Recorded on **first tap** of the ayah.
+
+### Third Attempt
+
+Student required a third attempt before succeeding. Recorded on **second tap** of the same ayah.
 
 ### Prompting Required
 
@@ -179,11 +183,11 @@ Student could not continue successfully.
 
 ---
 
-# Long Press Detailed Review
+# Mistakes Detail Panel (Third Tap)
 
-A long press on any verse opens a detailed review panel.
+On the **third tap** of a verse (after 2nd and 3rd attempt are recorded), a detail panel opens.
 
-This allows the teacher to record additional information without interrupting the recitation flow.
+This allows the teacher to tag mistake categories and add notes without a separate status picker.
 
 Possible information includes:
 
