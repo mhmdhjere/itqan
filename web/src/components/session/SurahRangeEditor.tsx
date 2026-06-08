@@ -1,6 +1,6 @@
 "use client";
 
-import { getSurah, surahs } from "@/lib/mock-data";
+import { useSurahIndex } from "@/lib/hooks/useSurahIndex";
 import type { SurahRange } from "@/lib/session-ranges";
 import { validateRange } from "@/lib/session-ranges";
 import { Button } from "@/components/ui/Button";
@@ -12,17 +12,17 @@ export function SurahRangeEditor({
   ranges: SurahRange[];
   onChange: (ranges: SurahRange[]) => void;
 }) {
+  const { surahs, loading, getAyahCount } = useSurahIndex();
+
   const updateRange = (id: string, patch: Partial<SurahRange>) => {
     onChange(
       ranges.map((r) => {
         if (r.id !== id) return r;
         const next = { ...r, ...patch };
-        const meta = getSurah(next.surah);
-        if (meta && next.endAyah > meta.ayahCount) {
-          next.endAyah = meta.ayahCount;
-        }
-        if (meta && next.startAyah > meta.ayahCount) {
-          next.startAyah = 1;
+        const ayahCount = getAyahCount(next.surah);
+        if (ayahCount) {
+          if (next.endAyah > ayahCount) next.endAyah = ayahCount;
+          if (next.startAyah > ayahCount) next.startAyah = 1;
         }
         return next;
       }),
@@ -36,22 +36,29 @@ export function SurahRangeEditor({
 
   const addRange = () => {
     const last = ranges[ranges.length - 1];
+    const surah = last?.surah ?? 1;
+    const ayahCount = getAyahCount(surah) ?? 7;
     onChange([
       ...ranges,
       {
         id: `range-${Date.now()}`,
-        surah: last?.surah ?? 20,
+        surah,
         startAyah: 1,
-        endAyah: Math.min(10, getSurah(last?.surah ?? 20)?.ayahCount ?? 10),
+        endAyah: Math.min(10, ayahCount),
       },
     ]);
   };
 
+  if (loading) {
+    return <p className="text-sm text-muted">Loading surahs…</p>;
+  }
+
   return (
     <div className="space-y-4">
       {ranges.map((range, index) => {
-        const meta = getSurah(range.surah);
-        const valid = validateRange(range);
+        const meta = surahs.find((s) => s.number === range.surah);
+        const ayahCount = meta?.ayahCount ?? 0;
+        const valid = ayahCount > 0 && validateRange(range, ayahCount);
         const verseCount = valid ? range.endAyah - range.startAyah + 1 : 0;
 
         return (
@@ -82,13 +89,11 @@ export function SurahRangeEditor({
                 updateRange(range.id, { surah: Number(e.target.value) })
               }
             >
-              {surahs
-                .sort((a, b) => a.number - b.number)
-                .map((s) => (
-                  <option key={s.number} value={s.number}>
-                    {s.nameEn} ({s.number}) — {s.ayahCount} ayahs
-                  </option>
-                ))}
+              {surahs.map((s) => (
+                <option key={s.number} value={s.number}>
+                  {s.nameEn} ({s.number}) — {s.ayahCount} ayahs
+                </option>
+              ))}
             </select>
 
             <div className="mt-3 flex gap-3">
@@ -97,7 +102,7 @@ export function SurahRangeEditor({
                 <input
                   type="number"
                   min={1}
-                  max={meta?.ayahCount}
+                  max={ayahCount || undefined}
                   className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2.5"
                   value={range.startAyah}
                   onChange={(e) =>
@@ -112,7 +117,7 @@ export function SurahRangeEditor({
                 <input
                   type="number"
                   min={range.startAyah}
-                  max={meta?.ayahCount}
+                  max={ayahCount || undefined}
                   className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2.5"
                   value={range.endAyah}
                   onChange={(e) =>

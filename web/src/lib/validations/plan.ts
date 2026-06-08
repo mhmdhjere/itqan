@@ -56,7 +56,11 @@ export const memorizationPlanSchema = z
     }
   });
 
-export const reviewTargetSchema = ayahRangeFields.superRefine((data, ctx) => {
+export const reviewTargetSchema = ayahRangeFields
+  .extend({
+    source: z.enum(["manual", "algorithm"]).optional(),
+  })
+  .superRefine((data, ctx) => {
   try {
     const meta = getSurahMeta(data.surah);
     const result = validateAyahRange(data, meta.ayahCount);

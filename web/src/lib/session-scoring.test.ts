@@ -6,7 +6,7 @@ import type { VerseMark } from "./types";
 const mockConfig = {
   verseStatuses: [
     { slug: "correct", scorePoints: 100, labelEn: "Correct", labelAr: null, color: "#0f0", sortOrder: 0, isDefaultImplicit: true },
-    { slug: "second_attempt", scorePoints: 80, labelEn: "2nd", labelAr: null, color: "#ff0", sortOrder: 1, isDefaultImplicit: false },
+    { slug: "second_attempt", scorePoints: 70, labelEn: "2nd", labelAr: null, color: "#ff0", sortOrder: 1, isDefaultImplicit: false },
     { slug: "third_attempt", scorePoints: 60, labelEn: "3rd", labelAr: null, color: "#f80", sortOrder: 2, isDefaultImplicit: false },
   ],
   mistakeCategories: [],
@@ -41,8 +41,7 @@ describe("computeSessionSummary", () => {
     expect(summary.versesRecited).toBe(3);
     expect(summary.exceptionCount).toBe(1);
     expect(summary.secondAttemptCount).toBe(1);
-    expect(summary.masteryScore).toBeGreaterThan(80);
-    expect(summary.masteryScore).toBeLessThan(100);
+    expect(summary.masteryScore).toBe(90);
   });
 
   it("applies mistake penalty to verse score", () => {

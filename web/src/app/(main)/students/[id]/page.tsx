@@ -4,13 +4,24 @@ import { auth } from "@/auth";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { formatRelativeDate, formatSurahRange } from "@/lib/format";
+import { MasteryMapThumbnail } from "@/components/mastery/MasteryMapThumbnail";
+import { MasteryRing } from "@/components/students/MasteryRing";
+import { ReviewRecommendationsInline } from "@/components/students/ReviewRecommendations";
+import { ResumeSessionBanner } from "@/components/students/ResumeSessionBanner";
 import { SessionHistoryList } from "@/components/students/SessionHistoryList";
+import { StudentNotes } from "@/components/students/StudentNotes";
+import { getActiveConfig } from "@/lib/config/service";
+import { getStudentMasteryMap } from "@/lib/queries/mastery-map";
+import { formatRelativeDate, formatSurahRange } from "@/lib/format";
+import { getStudentAnalytics } from "@/lib/queries/analytics";
 import {
   getMemorizationPlan,
   listReviewTargets,
 } from "@/lib/queries/plans";
-import { listStudentSessions } from "@/lib/queries/sessions";
+import {
+  getDraftSessionForStudent,
+  listStudentSessions,
+} from "@/lib/queries/sessions";
 import { getStudentForTeacher } from "@/lib/queries/students";
 
 export default async function StudentProfilePage({
@@ -25,13 +36,20 @@ export default async function StudentProfilePage({
   const student = await getStudentForTeacher(id, session.user.id);
   if (!student) notFound();
 
-  const [plan, reviews, sessions] = await Promise.all([
-    getMemorizationPlan(id, session.user.id),
-    listReviewTargets(id, session.user.id),
-    listStudentSessions(id, session.user.id, 20),
-  ]);
+  const [plan, reviews, sessions, analytics, masteryMap, activeConfig, draftSession] =
+    await Promise.all([
+      getMemorizationPlan(id, session.user.id),
+      listReviewTargets(id, session.user.id),
+      listStudentSessions(id, session.user.id, 20),
+      getStudentAnalytics(id, session.user.id),
+      getStudentMasteryMap(id, session.user.id),
+      getActiveConfig(),
+      getDraftSessionForStudent(id, session.user.id),
+    ]);
 
-  const sessionCount = sessions?.length ?? 0;
+  const masteryMapEnabled =
+    activeConfig.config.features.mastery_map !== false;
+  const reviewAutoEnabled = activeConfig.config.features.review_auto !== false;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
@@ -58,6 +76,52 @@ export default async function StudentProfilePage({
             : "No sessions yet"}
         </div>
       </div>
+
+      {analytics && analytics.totalSessions > 0 && (
+        <Card className="mt-6 flex flex-col items-center py-6 sm:flex-row sm:justify-around sm:gap-8">
+          <MasteryRing
+            percent={analytics.masteryPercent}
+            trend={analytics.masteryTrend}
+          />
+          <div className="mt-4 grid grid-cols-2 gap-4 text-center sm:mt-0">
+            {analytics.strongestSurah && (
+              <div>
+                <p className="text-xs text-muted">Strongest surah</p>
+                <p className="text-lg font-bold text-emerald-700">
+                  {analytics.strongestSurah.surah}
+                </p>
+                <p className="text-xs text-muted">
+                  {analytics.strongestSurah.score}% avg
+                </p>
+              </div>
+            )}
+            {analytics.weakestSurah &&
+              analytics.weakestSurah.surah !== analytics.strongestSurah?.surah && (
+                <div>
+                  <p className="text-xs text-muted">Needs work</p>
+                  <p className="text-lg font-bold text-amber-700">
+                    {analytics.weakestSurah.surah}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {analytics.weakestSurah.score}% avg
+                  </p>
+                </div>
+              )}
+          </div>
+        </Card>
+      )}
+
+      {draftSession && (
+        <ResumeSessionBanner
+          sessionId={draftSession.id}
+          startedAt={draftSession.startedAt}
+          passageLabel={draftSession.passages
+            .map((p) =>
+              formatSurahRange(p.surah, p.startAyah, p.endAyah),
+            )
+            .join(", ")}
+        />
+      )}
 
       <Button
         href={`/session/new?studentId=${id}`}
@@ -122,37 +186,55 @@ export default async function StudentProfilePage({
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         <Card className="text-center">
-          <p className="text-2xl font-bold">—</p>
+          <p className="text-2xl font-bold">
+            {analytics?.totalVersesRecited ?? "—"}
+          </p>
           <p className="text-xs text-muted">Verses recited</p>
         </Card>
         <Card className="text-center">
-          <p className="text-2xl font-bold">{sessionCount}</p>
+          <p className="text-2xl font-bold">
+            {analytics?.totalSessions ?? 0}
+          </p>
           <p className="text-xs text-muted">Sessions</p>
         </Card>
         <Card className="text-center">
-          <p className="text-lg font-bold">
-            {sessions?.[0]?.masteryScore != null
-              ? `${sessions[0].masteryScore}%`
-              : "—"}
+          <p className="text-lg font-bold truncate px-1">
+            {analytics?.commonMistake ?? "—"}
           </p>
-          <p className="text-xs text-muted">Last session</p>
+          <p className="text-xs text-muted">Common mistake</p>
         </Card>
       </div>
 
-      <Card className="mt-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Mastery Map</h2>
-          <Link
-            href={`/students/${id}/mastery-map`}
-            className="text-sm text-accent hover:underline"
-          >
-            Open full map
-          </Link>
-        </div>
-        <p className="mt-2 text-sm text-muted">
-          Available after session data is recorded (Milestone 3).
-        </p>
-      </Card>
+      {reviewAutoEnabled && (
+        <Card className="mt-4">
+          <ReviewRecommendationsInline studentId={id} />
+        </Card>
+      )}
+
+      {masteryMapEnabled && (
+        <Card className="mt-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Mastery Map</h2>
+            <Link
+              href={`/students/${id}/mastery-map`}
+              className="text-sm text-accent hover:underline"
+            >
+              Open full map
+            </Link>
+          </div>
+          <div className="mt-3">
+            {masteryMap ? (
+              <MasteryMapThumbnail studentId={id} surahs={masteryMap.surahs} />
+            ) : (
+              <p className="text-sm text-muted">No map data yet.</p>
+            )}
+          </div>
+        </Card>
+      )}
+
+      <div className="mt-4">
+        <StudentNotes studentId={id} />
+      </div>
 
       <Card className="mt-4">
         <div className="flex items-center justify-between">

@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { students } from "@/db/schema";
 import { requireTeacherSession } from "@/lib/api/auth";
 import { badRequest, notFound } from "@/lib/api/errors";
+import { guardStudent } from "@/lib/api/guards";
 import { getStudentForTeacher } from "@/lib/queries/students";
 import { updateStudentSchema } from "@/lib/validations/student";
 
@@ -14,6 +15,9 @@ export async function GET(_request: Request, context: RouteContext) {
   if ("error" in authResult) return authResult.error;
 
   const { id } = await context.params;
+  const denied = await guardStudent(id, authResult.teacherId);
+  if (denied) return denied;
+
   const student = await getStudentForTeacher(id, authResult.teacherId);
   if (!student) return notFound();
 
@@ -25,6 +29,9 @@ export async function PATCH(request: Request, context: RouteContext) {
   if ("error" in authResult) return authResult.error;
 
   const { id } = await context.params;
+  const denied = await guardStudent(id, authResult.teacherId);
+  if (denied) return denied;
+
   const existing = await getStudentForTeacher(id, authResult.teacherId);
   if (!existing) return notFound();
 
@@ -60,6 +67,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
   if ("error" in authResult) return authResult.error;
 
   const { id } = await context.params;
+  const denied = await guardStudent(id, authResult.teacherId);
+  if (denied) return denied;
+
   const existing = await getStudentForTeacher(id, authResult.teacherId);
   if (!existing) return notFound();
 

@@ -5,6 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -25,6 +26,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         const { email, password } = parsed.data;
+
+        const rate = checkRateLimit(
+          `auth:${email.toLowerCase()}`,
+          10,
+          15 * 60 * 1000,
+        );
+        if (!rate.allowed) {
+          return null;
+        }
+
         const db = getDb();
         const [user] = await db
           .select()

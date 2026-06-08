@@ -1,7 +1,13 @@
 import type { ActiveConfig } from "@/lib/config/types";
+import {
+  aggregateMistakeBreakdown,
+  computeSessionMastery,
+  computeVerseScore,
+} from "@/lib/mastery/scoring";
+import { getSurahMeta } from "@/lib/quran";
 import type { SurahRange } from "@/lib/session-ranges";
 import { countVersesInRanges, verseKey } from "@/lib/session-ranges";
-import type { VerseMark } from "@/lib/types";
+import type { VerseMark, VerseStatusSlug } from "@/lib/types";
 
 export type SessionSummaryJson = {
   versesRecited: number;
@@ -26,17 +32,9 @@ export function computeSessionSummary(
   marks: Record<string, VerseMark>,
   config: ActiveConfig | null,
 ): SessionSummaryJson {
-  const versesRecited = countVersesInRanges(ranges);
-  const statusPoints = new Map(
-    config?.verseStatuses.map((s) => [s.slug, s.scorePoints]) ?? [],
+  const versesRecited = countVersesInRanges(ranges, (surah) =>
+    getSurahMeta(surah).ayahCount,
   );
-  const mistakePenalty =
-    (config?.config.mastery.mistake_penalty as number | undefined) ?? 5;
-
-  const categoryBySlug = new Map(
-    config?.mistakeSubcategories.map((s) => [s.slug, s.categorySlug]) ?? [],
-  );
-
   const markedList = Object.values(marks);
   const exceptionCount = markedList.length;
 
@@ -48,47 +46,40 @@ export function computeSessionSummary(
     incompleteCount: 0,
   };
 
-  const mistakeCounts = new Map<string, number>();
-  let scoreSum = 0;
+  const verseInputs: { statusSlug: string; mistakes: string[] }[] = [];
 
   for (const range of ranges) {
     for (let ayah = range.startAyah; ayah <= range.endAyah; ayah++) {
       const key = verseKey(range.surah, ayah);
       const mark = marks[key];
-      if (!mark) {
-        scoreSum += statusPoints.get("correct") ?? 100;
-        continue;
-      }
+      const statusSlug = mark?.status ?? "correct";
+      const mistakes = mark?.mistakes ?? [];
 
-      const base = statusPoints.get(mark.status) ?? 0;
-      const penalty = (mark.mistakes?.length ?? 0) * mistakePenalty;
-      scoreSum += Math.max(base - penalty, 0);
+      verseInputs.push({ statusSlug, mistakes });
 
-      if (mark.status === "reminder_required") counts.reminderCount++;
-      else if (mark.status === "second_attempt") counts.secondAttemptCount++;
-      else if (mark.status === "third_attempt") counts.thirdAttemptCount++;
-      else if (mark.status === "prompting_required") counts.promptingCount++;
-      else if (mark.status === "incomplete") counts.incompleteCount++;
-
-      for (const m of mark.mistakes ?? []) {
-        const cat = categoryBySlug.get(m) ?? "other";
-        mistakeCounts.set(cat, (mistakeCounts.get(cat) ?? 0) + 1);
+      if (mark) {
+        const status = mark.status as VerseStatusSlug;
+        if (status === "reminder_required") counts.reminderCount++;
+        else if (status === "second_attempt") counts.secondAttemptCount++;
+        else if (status === "third_attempt") counts.thirdAttemptCount++;
+        else if (status === "prompting_required") counts.promptingCount++;
+        else if (status === "incomplete") counts.incompleteCount++;
       }
     }
   }
 
-  const masteryScore =
-    versesRecited > 0 ? Math.round(scoreSum / versesRecited) : 100;
+  const masteryScore = computeSessionMastery(verseInputs, config);
+  const mistakeBreakdown = aggregateMistakeBreakdown(
+    markedList.map((m) => ({ mistakes: m.mistakes ?? [] })),
+    config,
+  );
 
   return {
     versesRecited,
     exceptionCount,
     ...counts,
     masteryScore,
-    mistakeBreakdown: [...mistakeCounts.entries()].map(([category, count]) => ({
-      category,
-      count,
-    })),
+    mistakeBreakdown,
     markedVerses: markedList.map((m) => ({
       surah: m.surah,
       ayah: m.ayah,
@@ -97,3 +88,5 @@ export function computeSessionSummary(
     })),
   };
 }
+
+export { computeVerseScore };

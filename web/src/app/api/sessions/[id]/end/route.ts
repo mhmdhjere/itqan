@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTeacherSession } from "@/lib/api/auth";
-import { badRequest, notFound } from "@/lib/api/errors";
+import { badRequest, forbidden, notFound } from "@/lib/api/errors";
 import { endSession } from "@/lib/queries/sessions";
 import { endSessionSchema } from "@/lib/validations/session";
 
@@ -23,7 +23,10 @@ export async function POST(request: Request, context: RouteContext) {
     parsed.data.durationSeconds,
   );
 
-  if (!result) return notFound();
+  if ("error" in result) {
+    if (result.error === "forbidden") return forbidden();
+    return notFound();
+  }
 
   return NextResponse.json({
     summary: result.summary,

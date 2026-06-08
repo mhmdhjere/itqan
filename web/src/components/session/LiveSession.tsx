@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useActiveConfig } from "@/lib/hooks/useActiveConfig";
+import { useSurahIndex } from "@/lib/hooks/useSurahIndex";
+import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useSessionAutosave } from "@/lib/hooks/useSessionAutosave";
 import { useSessionTimer } from "@/lib/hooks/useSessionTimer";
 import { useStudent } from "@/lib/hooks/useStudent";
@@ -33,7 +35,8 @@ export function LiveSession({
   const router = useRouter();
   const { student } = useStudent(studentId);
   const { config: activeConfig } = useActiveConfig();
-  const totalVerses = countVersesInRanges(ranges);
+  const { getAyahCount, getSurahName } = useSurahIndex();
+  const totalVerses = countVersesInRanges(ranges, getAyahCount);
 
   const marks = useLiveSessionStore((s) => s.marks);
   const focusedKey = useLiveSessionStore((s) => s.focusedKey);
@@ -53,8 +56,10 @@ export function LiveSession({
 
   const undoDepth =
     (activeConfig?.config.live.undo_depth as number | undefined) ?? 20;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const endDialogRef = useFocusTrap(showEndConfirm);
   const seconds = useSessionTimer(true);
-  const { flush } = useSessionAutosave(sessionId, marks);
+  const { flush, online } = useSessionAutosave(sessionId, marks);
 
   useEffect(() => {
     init(sessionId, initialMarks, undoDepth);
@@ -65,6 +70,25 @@ export function LiveSession({
   useEffect(() => {
     setUndoDepth(undoDepth);
   }, [undoDepth, setUndoDepth]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (e.key === "Escape") {
+        if (showEndConfirm) {
+          setShowEndConfirm(false);
+        } else if (focusedKey !== null) {
+          setFocusedKey(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undo, showEndConfirm, focusedKey, setFocusedKey]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -166,10 +190,10 @@ export function LiveSession({
           </p>
           <p
             className="truncate text-xs text-muted"
-            title={formatRangesLabel(ranges)}
+            title={formatRangesLabel(ranges, getSurahName)}
           >
             {ranges.length === 1
-              ? formatRangesLabel(ranges)
+              ? formatRangesLabel(ranges, getSurahName)
               : `${ranges.length} passages · ${totalVerses} verses`}
           </p>
         </div>
@@ -182,16 +206,29 @@ export function LiveSession({
         </div>
       </header>
 
+      {!online && (
+        <p
+          className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900"
+          role="status"
+        >
+          Offline — marks are saved locally and will sync when you reconnect.
+        </p>
+      )}
+
       <p className="shrink-0 border-b border-border bg-stone-50 px-4 py-1.5 text-center text-xs text-muted">
         Tap ayah: 2nd attempt → 3rd attempt → mistakes
       </p>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8"
+      >
         <QuranCanvas
           ranges={ranges}
           marks={marks}
           activeConfig={activeConfig}
           onAyahClick={handleAyahClick}
+          scrollContainerRef={scrollRef}
         />
       </div>
 
@@ -232,10 +269,15 @@ export function LiveSession({
       {showEndConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div
+            ref={endDialogRef}
             className="w-full max-w-sm rounded-2xl bg-surface p-6 shadow-xl"
             role="dialog"
+            aria-modal="true"
+            aria-labelledby="end-session-title"
           >
-            <h2 className="text-lg font-semibold">End session?</h2>
+            <h2 id="end-session-title" className="text-lg font-semibold">
+              End session?
+            </h2>
             <p className="mt-2 text-sm text-muted">
               {exceptionCount} verse{exceptionCount !== 1 ? "s" : ""} marked
               across {ranges.length} passage{ranges.length !== 1 ? "s" : ""}.

@@ -1,6 +1,3 @@
-import { getAyahsInRange, getSurah } from "./mock-data";
-import type { Ayah } from "./types";
-
 export interface SurahRange {
   id: string;
   surah: number;
@@ -37,35 +34,38 @@ export function decodeRanges(param: string | null): SurahRange[] {
   });
 }
 
-export function validateRange(range: Pick<SurahRange, "surah" | "startAyah" | "endAyah">): boolean {
-  const meta = getSurah(range.surah);
-  if (!meta) return false;
+export function validateRange(
+  range: Pick<SurahRange, "surah" | "startAyah" | "endAyah">,
+  ayahCount: number,
+): boolean {
   return (
+    ayahCount > 0 &&
     range.startAyah >= 1 &&
     range.endAyah >= range.startAyah &&
-    range.endAyah <= meta.ayahCount
+    range.endAyah <= ayahCount
   );
 }
 
-export function countVersesInRanges(ranges: SurahRange[]): number {
-  return ranges.reduce(
-    (sum, r) =>
-      validateRange(r) ? sum + (r.endAyah - r.startAyah + 1) : sum,
-    0,
-  );
+export function countVersesInRanges(
+  ranges: SurahRange[],
+  getAyahCount: (surah: number) => number | undefined,
+): number {
+  return ranges.reduce((sum, r) => {
+    const ayahCount = getAyahCount(r.surah);
+    if (ayahCount === undefined) return sum;
+    return validateRange(r, ayahCount)
+      ? sum + (r.endAyah - r.startAyah + 1)
+      : sum;
+  }, 0);
 }
 
-export function getAyahsFromRanges(ranges: SurahRange[]): Ayah[] {
-  return ranges.flatMap((r) =>
-    validateRange(r) ? getAyahsInRange(r.surah, r.startAyah, r.endAyah) : [],
-  );
-}
-
-export function formatRangesLabel(ranges: SurahRange[]): string {
+export function formatRangesLabel(
+  ranges: SurahRange[],
+  getSurahName?: (surah: number) => string,
+): string {
   return ranges
-    .filter(validateRange)
     .map((r) => {
-      const name = getSurah(r.surah)?.nameEn ?? `Surah ${r.surah}`;
+      const name = getSurahName?.(r.surah) ?? `Surah ${r.surah}`;
       return r.startAyah === r.endAyah
         ? `${name} ${r.startAyah}`
         : `${name} ${r.startAyah}–${r.endAyah}`;

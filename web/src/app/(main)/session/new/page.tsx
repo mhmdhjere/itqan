@@ -7,6 +7,7 @@ import { SurahRangeEditor } from "@/components/session/SurahRangeEditor";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useStudent } from "@/lib/hooks/useStudent";
+import { useSurahIndex } from "@/lib/hooks/useSurahIndex";
 import type { MemorizationPlanDto, ReviewTargetDto } from "@/lib/queries/plans";
 import {
   countVersesInRanges,
@@ -51,6 +52,7 @@ function SessionSetupContent() {
   const searchParams = useSearchParams();
   const studentId = searchParams.get("studentId");
   const { student, loading, notFound } = useStudent(studentId);
+  const { getAyahCount, loading: surahsLoading } = useSurahIndex();
 
   const [ranges, setRanges] = useState<SurahRange[]>([newRange(1, 1, 7)]);
   const [planLoaded, setPlanLoaded] = useState(false);
@@ -83,8 +85,14 @@ function SessionSetupContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- init once per student
   }, [studentId]);
 
-  const allValid = ranges.length > 0 && ranges.every(validateRange);
-  const totalVerses = countVersesInRanges(ranges);
+  const allValid =
+    !surahsLoading &&
+    ranges.length > 0 &&
+    ranges.every((r) => {
+      const ayahCount = getAyahCount(r.surah);
+      return ayahCount !== undefined && validateRange(r, ayahCount);
+    });
+  const totalVerses = countVersesInRanges(ranges, getAyahCount);
 
   const planHint = useMemo(() => {
     if (!hasPlan || !student) return null;
@@ -140,7 +148,7 @@ function SessionSetupContent() {
     }
   };
 
-  if (loading || !planLoaded) {
+  if (loading || !planLoaded || surahsLoading) {
     return <p className="p-6 text-muted">Loading…</p>;
   }
 

@@ -8,9 +8,12 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/admin", label: "Overview", icon: "◈" },
   { href: "/admin/config", label: "Config", icon: "⚙" },
+  { href: "/admin/scoring-preview", label: "Scoring Preview", icon: "∑" },
+  { href: "/admin/feature-flags", label: "Feature Flags", icon: "◆" },
   { href: "/admin/verse-statuses", label: "Verse Statuses", icon: "◎" },
   { href: "/admin/mistake-types", label: "Mistake Types", icon: "▣" },
   { href: "/admin/users", label: "Users", icon: "◉" },
+  { href: "/admin/teachers", label: "Teachers", icon: "◎" },
   { href: "/admin/audit", label: "Audit Log", icon: "◇" },
 ];
 

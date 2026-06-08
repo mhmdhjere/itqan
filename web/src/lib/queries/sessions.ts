@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   circles,
@@ -13,7 +13,10 @@ import { getActiveConfig } from "@/lib/config/service";
 import { computeSessionSummary } from "@/lib/session-scoring";
 import { passagesToRanges, verseKey } from "@/lib/session-ranges";
 import type { VerseMark } from "@/lib/types";
+import { isSessionMutable } from "@/lib/session-immutability";
+import { refreshMasterySnapshotsForSession } from "./mastery-snapshots";
 import { getStudentForTeacher } from "./students";
+import { checkSessionOwnership } from "@/lib/api/ownership";
 
 export type SessionPassageDto = {
   surah: number;
@@ -191,6 +194,10 @@ export async function getSessionDetail(
   };
 }
 
+export type BatchUpdateResult =
+  | { ok: true }
+  | { error: "not_found" | "forbidden" | "ended" | "immutable" };
+
 export async function batchUpdateVerses(
   sessionId: string,
   teacherId: string,
@@ -201,9 +208,25 @@ export async function batchUpdateVerses(
     mistakes?: string[];
     note?: string | null;
   }[],
-) {
+): Promise<BatchUpdateResult> {
+  const access = await checkSessionOwnership(sessionId, teacherId);
+  if (access === "not_found") return { error: "not_found" };
+  if (access === "forbidden") return { error: "forbidden" };
+
   const owned = await getOwnedSession(sessionId, teacherId);
-  if (!owned || owned.session.endedAt) return null;
+  if (!owned) return { error: "not_found" };
+  if (owned.session.endedAt) return { error: "ended" };
+
+  const config = await getActiveConfig();
+  if (
+    !isSessionMutable(
+      owned.session.startedAt,
+      owned.session.endedAt,
+      config,
+    )
+  ) {
+    return { error: "immutable" };
+  }
 
   const db = getDb();
 
@@ -284,13 +307,22 @@ export async function batchUpdateVerses(
   return { ok: true };
 }
 
+export type EndSessionResult =
+  | { summary: ReturnType<typeof computeSessionSummary>; durationSeconds: number }
+  | { error: "not_found" | "forbidden" | "ended" };
+
 export async function endSession(
   sessionId: string,
   teacherId: string,
   durationSeconds?: number,
-) {
+): Promise<EndSessionResult> {
+  const access = await checkSessionOwnership(sessionId, teacherId);
+  if (access === "not_found") return { error: "not_found" };
+  if (access === "forbidden") return { error: "forbidden" };
+
   const owned = await getOwnedSession(sessionId, teacherId);
-  if (!owned || owned.session.endedAt) return null;
+  if (!owned) return { error: "not_found" };
+  if (owned.session.endedAt) return { error: "ended" };
 
   const passages = await getSessionPassages(sessionId);
   const ranges = passagesToRanges(passages);
@@ -314,6 +346,17 @@ export async function endSession(
       summaryJson: summary,
     })
     .where(eq(recitationSessions.id, sessionId));
+
+  const affectedAyahs: { surah: number; ayah: number }[] = [];
+  for (const passage of passages) {
+    for (let ayah = passage.startAyah; ayah <= passage.endAyah; ayah++) {
+      affectedAyahs.push({ surah: passage.surah, ayah });
+    }
+  }
+  await refreshMasterySnapshotsForSession(
+    owned.session.studentId,
+    affectedAyahs,
+  );
 
   return { summary, durationSeconds: duration };
 }
@@ -360,4 +403,39 @@ export async function listStudentSessions(
   }
 
   return result;
+}
+
+export async function getDraftSessionForStudent(
+  studentId: string,
+  teacherId: string,
+): Promise<SessionListItemDto | null> {
+  const student = await getStudentForTeacher(studentId, teacherId);
+  if (!student) return null;
+
+  const db = getDb();
+  const [session] = await db
+    .select()
+    .from(recitationSessions)
+    .where(
+      and(
+        eq(recitationSessions.studentId, studentId),
+        isNull(recitationSessions.endedAt),
+      ),
+    )
+    .orderBy(desc(recitationSessions.startedAt))
+    .limit(1);
+
+  if (!session) return null;
+
+  const passages = await getSessionPassages(session.id);
+  return {
+    id: session.id,
+    studentId: session.studentId,
+    startedAt: session.startedAt.toISOString(),
+    endedAt: null,
+    durationSeconds: session.durationSeconds,
+    exceptionCount: 0,
+    masteryScore: null,
+    passages,
+  };
 }

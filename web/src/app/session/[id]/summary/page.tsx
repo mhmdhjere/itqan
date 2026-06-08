@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { SessionMasteryChart } from "@/components/session/SessionMasteryChart";
+import { SessionNoteSection } from "@/components/session/SessionNoteSection";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useActiveConfig } from "@/lib/hooks/useActiveConfig";
+import { useSurahIndex } from "@/lib/hooks/useSurahIndex";
 import { useSession } from "@/lib/hooks/useSession";
 import { useStudent } from "@/lib/hooks/useStudent";
 import { formatRangesLabel, passagesToRanges } from "@/lib/session-ranges";
@@ -25,6 +28,7 @@ function SummaryContent() {
   const sessionId = params.id;
   const { session, loading, notFound } = useSession(sessionId);
   const { config } = useActiveConfig();
+  const { getSurahName } = useSurahIndex();
   const studentId = session?.studentId ?? null;
   const { student } = useStudent(studentId);
   const [showMarked, setShowMarked] = useState(false);
@@ -46,7 +50,7 @@ function SummaryContent() {
 
   const summary = session.summary;
   const ranges = passagesToRanges(session.passages);
-  const rangeLabel = formatRangesLabel(ranges);
+  const rangeLabel = formatRangesLabel(ranges, getSurahName);
 
   const statusLabel = (slug: string) =>
     config?.verseStatuses.find((s) => s.slug === slug)?.labelEn ?? slug;
@@ -71,9 +75,11 @@ function SummaryContent() {
         </p>
       </div>
 
-      <Card className="mt-6 text-center">
-        <p className="text-4xl font-bold text-accent">{summary.masteryScore}%</p>
-        <p className="text-sm text-muted">Session mastery</p>
+      <Card className="mt-6">
+        <h2 className="font-semibold">Session mastery</h2>
+        <div className="mt-4">
+          <SessionMasteryChart summary={summary} config={config} />
+        </div>
       </Card>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -153,6 +159,8 @@ function SummaryContent() {
           </ul>
         )}
       </Card>
+
+      <SessionNoteSection sessionId={sessionId} />
 
       <div className="mt-6 space-y-3">
         <Button className="w-full" size="lg" href={`/students/${studentId}`}>

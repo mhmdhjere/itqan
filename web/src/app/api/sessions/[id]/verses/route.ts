@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireTeacherSession } from "@/lib/api/auth";
-import { badRequest, notFound } from "@/lib/api/errors";
+import {
+  badRequest,
+  forbidden,
+  notFound,
+  tooManyRequests,
+} from "@/lib/api/errors";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 import { batchUpdateVerses } from "@/lib/queries/sessions";
 import { batchVersesSchema } from "@/lib/validations/session";
 
@@ -11,6 +17,16 @@ export async function PATCH(request: Request, context: RouteContext) {
   if ("error" in authResult) return authResult.error;
 
   const { id } = await context.params;
+
+  const rate = checkRateLimit(
+    `verses:${authResult.teacherId}:${id}`,
+    120,
+    60_000,
+  );
+  if (!rate.allowed) {
+    return tooManyRequests(rate.retryAfterSec);
+  }
+
   const body = await request.json();
   const parsed = batchVersesSchema.safeParse(body);
   if (!parsed.success) {
@@ -23,6 +39,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     parsed.data.verses,
   );
 
-  if (!result) return notFound();
+  if ("error" in result) {
+    if (result.error === "forbidden") return forbidden();
+    if (result.error === "immutable") {
+      return badRequest("Session is no longer editable");
+    }
+    return notFound();
+  }
+
   return NextResponse.json({ ok: true });
 }

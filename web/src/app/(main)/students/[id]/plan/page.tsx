@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ReviewRecommendations } from "@/components/students/ReviewRecommendations";
 import { formatSurahRange } from "@/lib/format";
 import { useStudent } from "@/lib/hooks/useStudent";
 import type { MemorizationPlanDto, ReviewTargetDto } from "@/lib/queries/plans";
@@ -248,7 +249,20 @@ export default function PlanPage() {
       </form>
 
       <Card className="mt-4 space-y-3">
-        <h2 className="font-semibold">Review targets</h2>
+        <h2 className="font-semibold">Suggested review</h2>
+        <ReviewRecommendations
+          studentId={studentId}
+          limit={5}
+          onPin={() => {
+            fetch(`/api/students/${studentId}/review-targets`)
+              .then((r) => r.json())
+              .then((data) => setReviews(data.reviewTargets ?? []));
+          }}
+        />
+      </Card>
+
+      <Card className="mt-4 space-y-3">
+        <h2 className="font-semibold">Pinned review targets</h2>
         <div className="flex flex-wrap gap-2">
           {reviews.map((r) => (
             <Badge key={r.id} variant="muted" className="gap-2">

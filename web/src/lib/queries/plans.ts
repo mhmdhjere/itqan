@@ -129,7 +129,12 @@ export async function listReviewTargets(
 export async function createReviewTarget(
   studentId: string,
   teacherId: string,
-  data: { surah: number; startAyah: number; endAyah: number },
+  data: {
+    surah: number;
+    startAyah: number;
+    endAyah: number;
+    source?: "manual" | "algorithm";
+  },
 ) {
   const student = await getStudentForTeacher(studentId, teacherId);
   if (!student) return null;
@@ -142,7 +147,7 @@ export async function createReviewTarget(
       surah: data.surah,
       startAyah: data.startAyah,
       endAyah: data.endAyah,
-      source: "manual",
+      source: data.source ?? "manual",
     })
     .returning();
 

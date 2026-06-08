@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {
+  enqueueVerseUpdates,
+  flushOfflineQueue,
+} from "@/lib/offline/session-queue";
 import type { VerseMark } from "@/lib/types";
+import { useOnlineStatus } from "./useOnlineStatus";
 
 function marksToPayload(marks: Record<string, VerseMark>) {
   return Object.values(marks).map((m) => ({
@@ -19,10 +24,40 @@ export function useSessionAutosave(
   enabled = true,
   debounceMs = 2000,
 ) {
+  const online = useOnlineStatus();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
   const marksRef = useRef(marks);
   marksRef.current = marks;
+
+  const persist = async (serialized: string) => {
+    if (!sessionId) return false;
+    const payload = marksToPayload(marksRef.current);
+    if (payload.length === 0) return true;
+
+    if (!navigator.onLine) {
+      enqueueVerseUpdates(sessionId, payload);
+      lastSavedRef.current = serialized;
+      return true;
+    }
+
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/verses`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verses: payload }),
+      });
+      if (res.ok) {
+        lastSavedRef.current = serialized;
+        return true;
+      }
+      enqueueVerseUpdates(sessionId, payload);
+      return false;
+    } catch {
+      enqueueVerseUpdates(sessionId, payload);
+      return false;
+    }
+  };
 
   useEffect(() => {
     if (!sessionId || !enabled) return;
@@ -33,20 +68,7 @@ export function useSessionAutosave(
     if (timerRef.current) clearTimeout(timerRef.current);
 
     timerRef.current = setTimeout(() => {
-      const payload = marksToPayload(marksRef.current);
-      if (payload.length === 0) return;
-
-      fetch(`/api/sessions/${sessionId}/verses`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verses: payload }),
-      })
-        .then((res) => {
-          if (res.ok) lastSavedRef.current = serialized;
-        })
-        .catch(() => {
-          /* retry on next change */
-        });
+      void persist(serialized);
     }, debounceMs);
 
     return () => {
@@ -54,18 +76,25 @@ export function useSessionAutosave(
     };
   }, [sessionId, marks, enabled, debounceMs]);
 
+  useEffect(() => {
+    if (!sessionId || !online) return;
+    void flushOfflineQueue(sessionId).then((ok) => {
+      if (ok) {
+        const serialized = JSON.stringify(marksRef.current);
+        if (serialized !== lastSavedRef.current) {
+          void persist(serialized);
+        }
+      }
+    });
+  }, [sessionId, online]);
+
   const flush = async () => {
     if (!sessionId) return;
-    const payload = marksToPayload(marksRef.current);
-    if (payload.length === 0) return;
-
-    const res = await fetch(`/api/sessions/${sessionId}/verses`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ verses: payload }),
-    });
-    if (res.ok) lastSavedRef.current = JSON.stringify(marksRef.current);
+    if (online) {
+      await flushOfflineQueue(sessionId);
+    }
+    await persist(JSON.stringify(marksRef.current));
   };
 
-  return { flush };
+  return { flush, online };
 }

@@ -217,6 +217,25 @@ export const mistakeSubcategories = pgTable("mistake_subcategories", {
   isActive: boolean("is_active").notNull().default(true),
 });
 
+export const studentMasterySnapshots = pgTable(
+  "student_mastery_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    studentId: uuid("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    surah: integer("surah").notNull(),
+    ayah: integer("ayah").notNull(),
+    state: varchar("state", { length: 32 }).notNull(),
+    score: integer("score").notNull(),
+    topMistakes: jsonb("top_mistakes").$type<string[]>().notNull().default([]),
+    lastRecitedAt: timestamp("last_recited_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
 export const featureFlags = pgTable("feature_flags", {
   key: varchar("key", { length: 128 }).primaryKey(),
   enabled: boolean("enabled").notNull().default(false),

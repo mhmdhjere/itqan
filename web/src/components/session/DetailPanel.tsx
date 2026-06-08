@@ -1,6 +1,9 @@
 "use client";
 
 import type { ActiveConfig } from "@/lib/config/types";
+import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
+import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 
 export function DetailPanel({
@@ -26,6 +29,8 @@ export function DetailPanel({
   onDone: () => void;
   onClose: () => void;
 }) {
+  const trapRef = useFocusTrap(true);
+  const reducedMotion = useReducedMotion();
   const categories = activeConfig?.mistakeCategories ?? [];
   const subcategories = activeConfig?.mistakeSubcategories ?? [];
 
@@ -34,11 +39,17 @@ export function DetailPanel({
       <div
         className="fixed inset-0 z-40 bg-black/20 lg:bg-black/10"
         onClick={onClose}
+        aria-hidden
       />
       <div
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-surface shadow-xl lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[360px] lg:max-h-none lg:rounded-none lg:rounded-l-2xl"
+        ref={trapRef}
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-surface shadow-xl lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[360px] lg:max-h-none lg:rounded-none lg:rounded-l-2xl",
+          !reducedMotion && "transition-transform duration-200 ease-out",
+        )}
         role="dialog"
-        aria-label="Verse detail"
+        aria-modal="true"
+        aria-label={`Verse detail: ${surahName} ayah ${ayah}`}
       >
         <div className="sticky top-0 border-b border-border bg-surface px-4 py-3">
           <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-stone-300 lg:hidden" />
@@ -74,6 +85,7 @@ export function DetailPanel({
                           key={chip.slug}
                           type="button"
                           onClick={() => onToggleMistake(chip.slug)}
+                          aria-pressed={active}
                           className={`h-10 rounded-full px-3 text-sm transition-colors ${
                             active
                               ? "bg-accent text-white"
@@ -90,24 +102,31 @@ export function DetailPanel({
             })
           )}
 
-          <details className="group">
-            <summary className="cursor-pointer text-sm text-muted hover:text-foreground">
-              + Add note (optional)
-            </summary>
+          <div>
+            <label
+              htmlFor="verse-note"
+              className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
+            >
+              Note
+            </label>
             <textarea
-              className="mt-2 w-full rounded-lg border border-border p-3 text-sm outline-none focus:border-accent"
-              rows={3}
-              placeholder="Teacher observation..."
+              id="verse-note"
               value={note}
               onChange={(e) => onNoteChange(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+              placeholder="Optional note for this ayah…"
             />
-          </details>
-        </div>
+          </div>
 
-        <div className="sticky bottom-0 border-t border-border bg-surface p-4">
-          <Button className="w-full" onClick={onDone}>
-            Done
-          </Button>
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" className="flex-1" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={onDone}>
+              Done
+            </Button>
+          </div>
         </div>
       </div>
     </>
