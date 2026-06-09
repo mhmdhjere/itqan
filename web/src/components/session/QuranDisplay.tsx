@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ActiveConfig } from "@/lib/config/types";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { useTeacherPreferences } from "@/lib/hooks/useTeacherPreferences";
 import type { QuranDisplayMode } from "@/lib/mushaf/types";
 import type { SurahRange } from "@/lib/session-ranges";
@@ -55,6 +56,7 @@ export function QuranDisplay({
   activeConfig: ActiveConfig | null;
   onAyahClick: (surah: number, ayah: number) => void;
 }) {
+  const isMobile = useIsMobile();
   const { mode, setMode, loaded } = useTeacherPreferences();
   const [localMode, setLocalMode] = useState<QuranDisplayMode>("structured");
   const [mushafPage, setMushafPage] = useState<number | undefined>();
@@ -68,7 +70,11 @@ export function QuranDisplay({
   }, [loaded, mode]);
 
   const displayMode =
-    mushafEnabled && localMode === "mushaf" ? "mushaf" : "structured";
+    isMobile && mushafEnabled
+      ? "mushaf"
+      : mushafEnabled && localMode === "mushaf"
+        ? "mushaf"
+        : "structured";
 
   const handleModeChange = (next: QuranDisplayMode) => {
     setLocalMode(next);
@@ -77,7 +83,7 @@ export function QuranDisplay({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {mushafEnabled && (
+      {mushafEnabled && !isMobile && (
         <div className="mb-4 flex shrink-0 justify-center">
           <ModeToggle mode={displayMode} onChange={handleModeChange} />
         </div>
@@ -85,9 +91,11 @@ export function QuranDisplay({
 
       {displayMode === "mushaf" ? (
         <>
-          <p className="mb-2 shrink-0 text-center text-xs text-muted">
-            Tap an ayah in your session range to mark
-          </p>
+          {!isMobile && (
+            <p className="mb-2 shrink-0 text-center text-xs text-muted">
+              Tap an ayah in your session range to mark
+            </p>
+          )}
           <MushafCanvas
             ranges={ranges}
             marks={marks}
@@ -95,6 +103,7 @@ export function QuranDisplay({
             onAyahClick={onAyahClick}
             initialPage={mushafPage}
             onPageChange={setMushafPage}
+            mobile={isMobile}
           />
         </>
       ) : (

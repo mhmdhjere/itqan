@@ -20,4 +20,28 @@ describe("computeMushafScale", () => {
   it("never exceeds 1", () => {
     expect(computeMushafScale(2000, 2000)).toBe(1);
   });
+
+  it("fills viewport on mobile when maxScale is removed", () => {
+    const scale = computeMushafScale(600, 1000, {
+      padding: 0,
+      maxScale: Number.POSITIVE_INFINITY,
+    });
+    expect(scale).toBeGreaterThan(1);
+    expect(scale * MUSHAF_PAGE_WIDTH).toBeCloseTo(600, 0);
+  });
+
+  it("uses cover fit to maximize mobile fill", () => {
+    const contain = computeMushafScale(390, 680, {
+      padding: 0,
+      maxScale: Number.POSITIVE_INFINITY,
+      fit: "contain",
+    });
+    const cover = computeMushafScale(390, 680, {
+      padding: 0,
+      maxScale: Number.POSITIVE_INFINITY,
+      fit: "cover",
+    });
+    expect(cover).toBeGreaterThan(contain);
+    expect(cover * MUSHAF_PAGE_HEIGHT).toBeCloseTo(680, 0);
+  });
 });

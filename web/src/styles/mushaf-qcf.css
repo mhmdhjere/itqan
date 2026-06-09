@@ -1,0 +1,120 @@
+/* QCF V2 mushaf page — quran.com-style Medina layout */
+
+.qt-mushaf-qcf {
+  --qcf-line-font: 21px;
+  --qcf-line-height: 1.8;
+  --qcf-line-pad: 14px;
+  --qcf-page-pad-y: 10px;
+  direction: rtl;
+  background: #fffef8;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.qt-mushaf-qcf--fill {
+  /* Do NOT override --qcf-line-font here.
+     The 512×724 canvas must lay out at the same 21px as desktop so that
+     space-between distributes words correctly within the fixed width.
+     MushafPageScaler's CSS scale() transform handles physical sizing. */
+  /* --qcf-line-pad is intentionally omitted: MushafPageScaler computes the
+     correct value dynamically (based on height-first scale) and sets it via
+     the --qt-line-pad CSS variable which .qt-mushaf-qcf-line--text reads. */
+  --qcf-line-height: 1.82;
+  --qcf-page-pad-y: 5px;
+}
+
+/* Opening mushaf pages — short lines centered like the printed copy */
+.qt-mushaf-qcf--opening .qt-mushaf-qcf-line--text {
+  justify-content: center;
+  gap: 0.4em;
+}
+
+.qt-mushaf-qcf-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: var(--qcf-page-pad-y) 0;
+  box-sizing: border-box;
+}
+
+.qt-mushaf-qcf-line--surah {
+  flex: 0 0 auto;
+  text-align: center;
+  font-family: var(--font-amiri), "Traditional Arabic", serif;
+  font-size: calc(var(--qcf-line-font) * 0.72);
+  color: #44403c;
+  padding: 4px 0 2px;
+}
+
+.qt-mushaf-qcf-line--basmala {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: var(--qcf-line-font);
+  line-height: var(--qcf-line-height);
+  padding: 2px var(--qcf-line-pad);
+}
+
+.qt-mushaf-qcf-line--text {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-size: var(--qcf-line-font);
+  line-height: var(--qcf-line-height);
+  /* --qt-line-pad is set by MushafPageScaler on mobile (height-first layout)
+     and cascades down; on desktop it is unset so we fall back to --qcf-line-pad */
+  padding: 0 var(--qt-line-pad, var(--qcf-line-pad));
+  box-sizing: border-box;
+}
+
+.qt-mushaf-qcf-word {
+  display: inline-block;
+  cursor: default;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.qt-mushaf-qcf-word.qt-mushaf-in-range {
+  cursor: pointer;
+}
+
+.qt-mushaf-qcf-word.qt-mushaf-out-range {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.qt-mushaf-ayah-hover-band,
+.qt-mushaf-ayah-mark-band {
+  position: absolute;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Highlight overlay bands */
+.qt-mushaf-qcf .qt-mushaf-ayah-hover-band {
+  background-color: rgba(251, 191, 36, 0.28);
+}
+
+.qt-mushaf-qcf .qt-mushaf-ayah-mark-band--reminder_required {
+  background-color: rgba(251, 191, 36, 0.35);
+}
+
+.qt-mushaf-qcf .qt-mushaf-ayah-mark-band--second_attempt {
+  background-color: rgba(254, 215, 170, 0.75);
+}
+
+.qt-mushaf-qcf .qt-mushaf-ayah-mark-band--third_attempt {
+  background-color: rgba(254, 202, 202, 0.7);
+}
+
+.qt-mushaf-qcf .qt-mushaf-ayah-mark-band--prompting_required {
+  background-color: rgba(254, 202, 202, 0.8);
+}
+
+.qt-mushaf-qcf .qt-mushaf-ayah-mark-band--incomplete {
+  background-color: rgba(251, 207, 232, 0.75);
+}

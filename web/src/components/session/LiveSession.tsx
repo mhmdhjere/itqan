@@ -181,8 +181,8 @@ export function LiveSession({
   }, [detailSurah, detailAyah]);
 
   return (
-    <div className="flex h-dvh flex-col bg-quran-bg">
-      <header className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-4 py-3">
+    <div className="flex h-dvh flex-col bg-quran-bg max-md:bg-[#fffef8]">
+      <header className="hidden shrink-0 items-center justify-between border-b border-border bg-surface px-4 py-3 md:flex">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">
             {student?.fullName ?? "Student"}
@@ -207,18 +207,18 @@ export function LiveSession({
 
       {!online && (
         <p
-          className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900"
+          className="hidden shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900 md:block"
           role="status"
         >
           Offline — marks are saved locally and will sync when you reconnect.
         </p>
       )}
 
-      <p className="shrink-0 border-b border-border bg-stone-50 px-4 py-1.5 text-center text-xs text-muted">
+      <p className="hidden shrink-0 border-b border-border bg-stone-50 px-4 py-1.5 text-center text-xs text-muted md:block">
         Tap ayah: 2nd attempt → 3rd attempt → mistakes
       </p>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:px-4 md:py-4 lg:px-6">
         <QuranDisplay
           ranges={ranges}
           marks={marks}
@@ -227,13 +227,20 @@ export function LiveSession({
         />
       </div>
 
-      <footer className="flex shrink-0 items-center justify-between border-t border-border bg-surface px-4 py-3">
-        <Button variant="ghost" size="sm" onClick={undo} disabled={!canUndo()}>
+      <footer className="relative z-20 flex shrink-0 items-center justify-center border-t border-border/60 bg-surface px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:justify-between md:px-4 md:py-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden md:inline-flex"
+          onClick={undo}
+          disabled={!canUndo()}
+        >
           Undo
         </Button>
         <Button
           variant="danger"
           size="sm"
+          className="w-full max-w-xs md:w-auto"
           onClick={() => setShowEndConfirm(true)}
         >
           End Session
