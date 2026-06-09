@@ -20,7 +20,7 @@ export function ResumeSessionBanner({
           Started {formatRelativeDate(startedAt)} · {passageLabel}
         </p>
       </div>
-      <Button href={`/session/${sessionId}`} size="sm">
+      <Button href={`/session/${sessionId}/live`} size="sm">
         Resume session
       </Button>
     </div>
